@@ -31,6 +31,7 @@ using AcceptorResponse = std::variant<Ack<L>, Nack<L>>;
 struct AcceptorDescriptor {
     std::string ip_address;
     uint64_t id;
+    uint64_t port;
 };
 
 template<typename L>

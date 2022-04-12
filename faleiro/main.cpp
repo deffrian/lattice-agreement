@@ -1,32 +1,52 @@
 #include <iostream>
+#include <fstream>
 
 #include "lattice.h"
 #include "acceptor.h"
 #include "proposer.h"
 
-int main() {
-    AcceptorProtocolTcp<LatticeSet> acceptor_protocol;
-    Acceptor<LatticeSet, AcceptorProtocolTcp<LatticeSet>> acceptor1(acceptor_protocol);
-    Acceptor<LatticeSet, AcceptorProtocolTcp<LatticeSet>> acceptor2(acceptor_protocol);
-    g_acceptors.push_back(&acceptor1);
-    g_acceptors.push_back(&acceptor2);
-    LatticeSet set1;
-    LatticeSet set2;
-    set1.insert(3);
-    set2.insert(2);
-
-    std::cout << "here" << std::endl;
-    ProposerProtocolTcp<LatticeSet> protocol;
-    protocol.add_acceptor(AcceptorDescriptor{"", acceptor1.get_id()});
-    protocol.add_acceptor(AcceptorDescriptor{"", acceptor2.get_id()});
-
-    Proposer<LatticeSet, ProposerProtocolTcp<LatticeSet>> proposer1(protocol);
-    Proposer<LatticeSet, ProposerProtocolTcp<LatticeSet>> proposer2(protocol);
-
-    auto res1 = proposer1.get_value(set1);
-    std::cout << "res1 " << res1.set.size() << " " << *res1.set.begin() << std::endl;
-    std::cout << "first done" << std::endl;
-    auto res2 = proposer2.get_value(set2);
-    std::cout << "res2 " << res2.set.size() << ' ' << *res2.set.begin() << ' ' << *(++res2.set.begin()) << std::endl;
-//    acceptor.process_proposal(0, set, 0);
+template<typename L>
+void read_acceptors_from_config(const std::string &acceptors_config, ProposerProtocolTcp<L> &protocol) {
+    std::ifstream s(acceptors_config);
+    std::string ip;
+    uint64_t port;
+    uint64_t id;
+    while ((s >> ip) && (s >> port) && (s >> id)) {
+        protocol.add_acceptor({ip, id, port});
+    }
+    s.close();
 }
+
+template<typename L>
+void read_set_from_config(const std::string &set_config, L &set) {
+    std::ifstream s(set_config);
+    uint64_t elem;
+    while (s >> elem) {
+        set.insert(elem);
+    }
+    s.close();
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        std::cout << "wrong args" << std::endl;
+        return -1;
+    }
+    if (argv[1][0] == 's') {
+        AcceptorProtocolTcp<LatticeSet> acceptor_protocol;
+        Acceptor<LatticeSet> acceptor1(std::stoi(argv[3]));
+        acceptor_protocol.start(acceptor1, std::stoi(argv[2]));
+    } else {
+        ProposerProtocolTcp<LatticeSet> protocol;
+        LatticeSet s;
+        read_acceptors_from_config(argv[2], protocol);
+        read_set_from_config(argv[3], s);
+        Proposer<LatticeSet, ProposerProtocolTcp<LatticeSet>> proposer(protocol);
+        auto result = proposer.get_value(s);
+        for (auto elem : result.set) {
+            std::cout << elem << ' ';
+        }
+        std::cout << std::endl;
+    }
+}
+

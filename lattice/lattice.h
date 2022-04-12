@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <memory>
 #include <cstddef>
+#include <sstream>
 
 class LatticeSet {
 public:
@@ -33,6 +34,15 @@ public:
 
     void insert(uint64_t elem) {
         set.insert(elem);
+    }
+
+    std::basic_string<uint64_t> serialize() const {
+        std::basic_stringstream<uint64_t> stream;
+        stream << set.size();
+        for (auto &elem : set) {
+            stream << elem;
+        }
+        return stream.str();
     }
 
 public:
