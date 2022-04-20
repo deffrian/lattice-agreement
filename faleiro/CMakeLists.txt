@@ -5,4 +5,4 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(faleiro acceptor.h main.cpp)
 
-include_directories(../lattice)
+include_directories(../general)

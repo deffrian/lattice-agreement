@@ -117,7 +117,7 @@ struct ProposerProtocolTcp {
         struct sockaddr_in serv_addr;
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             printf("\n Socket creation error \n");
-            exit(EXIT_FAILURE);
+            assert(false);
         }
 
         serv_addr.sin_family = AF_INET;
@@ -127,12 +127,12 @@ struct ProposerProtocolTcp {
         // form
         if (inet_pton(AF_INET, descriptor.ip_address.data(), &serv_addr.sin_addr) <= 0) {
             std::cout << "Invalid address" << std::endl;
-            exit(EXIT_FAILURE);
+            assert(false);
         }
 
         if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
             std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << std::endl;
-            exit(EXIT_FAILURE);
+            assert(false);
         }
         std::cout << "Sending request" << std::endl;
         send(sock, &proposal.proposal_number, 64 / 8, 0);
