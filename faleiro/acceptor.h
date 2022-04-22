@@ -1,10 +1,9 @@
 #pragma once
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <cassert>
 #include "lattice.h"
 #include "protocol.h"
+#include "network.h"
 
 template<typename L>
 struct Acceptor {
@@ -71,7 +70,7 @@ struct AcceptorProtocolTcp {
             std::cout << "Connection accepted" << std::endl;
             process_client(new_socket, acceptor);
             std::cout << "Closing connection" << std::endl;
-//            close(new_socket);
+            close(new_socket);
         }
     }
 
@@ -80,14 +79,8 @@ struct AcceptorProtocolTcp {
         std::cout << "Proposal number: " << proposal_number << std::endl;
         uint64_t proposer_id = read_number(clientFd);
         std::cout << "Proposer id: " << proposer_id << std::endl;
-        LatticeSet set;
-        uint64_t set_size = read_number(clientFd);
-        std::cout << "Set size: " << set_size << std::endl;
-        for (size_t i = 0; i < set_size; ++i) {
-            uint64_t elem = read_number(clientFd);
-            std::cout << "elem: " << elem << std::endl;
-            set.insert(elem);
-        }
+        auto set = read_lattice<LatticeSet>(clientFd);
+
         auto res = acceptor.process_proposal(proposal_number, set, proposer_id);
         uint8_t isAck = std::holds_alternative<Ack<L>>(res);
         send(clientFd, &isAck, 1, 0);
@@ -102,23 +95,5 @@ struct AcceptorProtocolTcp {
             send_number(clientFd, elem);
         }
 //        send(clientFd, (void*)result_set.data(), result_set.size() * 8, 0);
-    }
-
-    uint64_t read_number(int clientFd) {
-        uint64_t number;
-        ssize_t len = read(clientFd, &number, 64 / 8);
-        if (len != 64 / 8) {
-            std::cout << "error reading number" << std::endl;
-            assert(false);
-        }
-        return number;
-    }
-
-    void send_number(int clientFd, uint64_t number) {
-        ssize_t len = send(clientFd, &number, 64 / 8, 0);
-        if (len != 64 / 8) {
-            std::cout << "error sending number" << std::endl;
-            assert(false);
-        }
     }
 };

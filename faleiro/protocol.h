@@ -28,12 +28,6 @@ struct Nack {
 template<typename L>
 using AcceptorResponse = std::variant<Ack<L>, Nack<L>>;
 
-struct AcceptorDescriptor {
-    std::string ip_address;
-    uint64_t id;
-    uint64_t port;
-};
-
 template<typename L>
 struct ProposerRequest {
     ProposerRequest(L &proposed_value, uint64_t proposal_number, uint64_t proposer_id) :

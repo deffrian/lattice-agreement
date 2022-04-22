@@ -1,15 +1,14 @@
 #pragma once
 
 #include <optional>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <unistd.h>
 #include <cassert>
+#include <random>
 
 #include "lattice.h"
 #include "acceptor.h"
+#include "network.h"
+#include "lattice_agreement.h"
 
 enum Status {
     Passive,
@@ -17,7 +16,7 @@ enum Status {
 };
 
 template<typename L, typename P>
-struct Proposer {
+struct Proposer : LatticeAgreement<L> {
     uint64_t uid;
     Status status;
     uint64_t ack_count;
@@ -29,10 +28,14 @@ struct Proposer {
 
     explicit Proposer(P &protocol) : protocol(protocol), status(Passive), ack_count(0), nack_count(0),
                                      active_proposal_number(0) {
-        uid = rand();
+        std::random_device dev;
+        std::mt19937 mt(dev());
+        std::uniform_int_distribution<uint64_t> dist;
+        uid = dist(mt);
+        std::cout << "proposer id: " << uid << std::endl;
     }
 
-    L get_value(L &initial_value) {
+    L start(const L &initial_value) override {
         propose(initial_value);
         while (true) {
             auto result = decide();
@@ -48,7 +51,7 @@ struct Proposer {
         return uid;
     }
 
-    void propose(L &initial_value) {
+    void propose(const L &initial_value) {
         if (active_proposal_number == 0) {
             proposed_value = initial_value;
             status = Status::Active;
@@ -94,15 +97,15 @@ struct Proposer {
 
 template<typename L>
 struct ProposerProtocolTcp {
-    std::vector<AcceptorDescriptor> acceptors;
+    std::vector<ProcessDescriptor> acceptors;
 
-    void add_acceptor(const AcceptorDescriptor &acceptor) {
+    void add_acceptor(const ProcessDescriptor &acceptor) {
         acceptors.push_back(acceptor);
     }
 
     void send_proposal(const ProposerRequest<L> &proposal, Proposer<L, ProposerProtocolTcp<L>> &proposer) {
-        for (size_t i = 0; i < acceptors.size(); ++i) {
-            auto res = get_reply(proposal, acceptors[i]);
+        for (auto & acceptor : acceptors) {
+            auto res = get_reply(proposal, acceptor);
             if (std::holds_alternative<Ack<L>>(res)) {
                 proposer.process_ack(std::get<Ack<L>>(res).proposal_number);
             } else {
@@ -112,37 +115,14 @@ struct ProposerProtocolTcp {
         }
     }
 
-    std::variant<Ack<L>, Nack<L>> get_reply(const ProposerRequest<L> &proposal, const AcceptorDescriptor &descriptor) {
-        int sock = 0;
-        struct sockaddr_in serv_addr;
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            printf("\n Socket creation error \n");
-            assert(false);
-        }
-
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons(descriptor.port);
-
-        // Convert IPv4 and IPv6 addresses from text to binary
-        // form
-        if (inet_pton(AF_INET, descriptor.ip_address.data(), &serv_addr.sin_addr) <= 0) {
-            std::cout << "Invalid address" << std::endl;
-            assert(false);
-        }
-
-        if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
-            std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << std::endl;
-            assert(false);
-        }
+    std::variant<Ack<L>, Nack<L>> get_reply(const ProposerRequest<L> &proposal, const ProcessDescriptor &descriptor) {
+        int sock = open_socket(descriptor);
         std::cout << "Sending request" << std::endl;
-        send(sock, &proposal.proposal_number, 64 / 8, 0);
-        send(sock, &proposal.proposer_id, 64 / 8, 0);
-        uint64_t set_size = proposal.proposed_value.set.size();
+//        send_number(sock, proposal.proposal_number);
+        send_number(sock, proposal.proposal_number);
+        send_number(sock, proposal.proposer_id);
+        send_lattice(sock, proposal.proposed_value);
 
-        send(sock, &set_size, 64 / 8, 0);
-        for (uint64_t elem : proposal.proposed_value.set) {
-            send(sock, &elem, 64 / 8, 0);
-        }
         std::cout << "Receiving reply" << std::endl;
 
         uint8_t isAck = -1;
@@ -150,19 +130,9 @@ struct ProposerProtocolTcp {
         if (len != 1) {
             assert(false);
         }
-        std::cout << "isAck " << (int)isAck << std::endl;
         uint64_t proposal_number = read_number(sock);
-        std::cout << "recv proposal number " << proposal_number << std::endl;
         uint64_t proposer_id = read_number(sock);
-        std::cout << "recv proposer id " << proposer_id << std::endl;
-        LatticeSet set_recv;
-        uint64_t set_size_recv = read_number(sock);
-        std::cout << "received set: " << set_size_recv << std::endl;
-        for (size_t i = 0; i < set_size_recv; ++i) {
-            uint64_t elem = read_number(sock);
-            std::cout << "elem: " << elem << std::endl;
-            set_recv.insert(elem);
-        }
+        auto set_recv = read_lattice<LatticeSet>(sock);
         close(sock);
         if (isAck) {
             return {Ack<L>{proposal_number, set_recv, proposer_id}};
@@ -171,22 +141,7 @@ struct ProposerProtocolTcp {
         }
     }
 
-    uint64_t read_number(int clientFd) {
-        uint64_t number;
-        size_t bytes_read = 0;
-
-        while (bytes_read != 64 / 8) {
-            ssize_t len = read(clientFd, (char*)(&number) + bytes_read, 64 / 8 - bytes_read);
-            if (len <= 0) {
-                std::cout << "error reading number" << std::endl;
-                assert(false);
-            }
-            bytes_read += len;
-        }
-        return number;
-    }
-
-    uint64_t get_acceptors_count() const {
+    [[nodiscard]] uint64_t get_acceptors_count() const {
         return acceptors.size();
     }
 };

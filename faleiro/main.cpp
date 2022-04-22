@@ -30,6 +30,8 @@ void read_set_from_config(const std::string &set_config, L &set) {
 int main(int argc, char *argv[]) {
     if (argc != 4) {
         std::cout << "wrong args" << std::endl;
+        std::cout << "s port id" << std::endl;
+        std::cout << "c acceptors_cfg set_cfg" << std::endl;
         return -1;
     }
     if (argv[1][0] == 's') {
@@ -42,7 +44,7 @@ int main(int argc, char *argv[]) {
         read_acceptors_from_config(argv[2], protocol);
         read_set_from_config(argv[3], s);
         Proposer<LatticeSet, ProposerProtocolTcp<LatticeSet>> proposer(protocol);
-        auto result = proposer.get_value(s);
+        auto result = proposer.start(s);
         for (auto elem : result.set) {
             std::cout << elem << ' ';
         }
