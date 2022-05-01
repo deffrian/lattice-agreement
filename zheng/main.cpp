@@ -32,11 +32,14 @@ int main(int argc, char *argv[]) {
 
     LatticeSet s;
     s.insert(std::stoi(argv[5]));
+    auto begin = std::chrono::steady_clock::now();
     auto y = la.start(s);
+    auto end = std::chrono::steady_clock::now();
     std::cout << "Answer: " << std::endl;
     for (auto elem : y.set) {
         std::cout << elem <<  ' ';
     }
+    std::cout << "Elapsed microseconds: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
     std::cout << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(30));
 }
