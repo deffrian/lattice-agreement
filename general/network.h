@@ -49,7 +49,7 @@ std::vector<L> read_lattice_vector(int client_fd) {
 }
 
 int open_socket(const ProcessDescriptor &descriptor) {
-    std::cout << "Open connection to " << descriptor.id << std::endl;
+    std::cout << "Open connection to " << descriptor.id << " port: " << descriptor.port << " ip: " << descriptor.ip_address << std::endl;
     int sock = 0;
     struct sockaddr_in serv_addr;
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
