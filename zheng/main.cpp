@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     }
     ProtocolTcp<LatticeSet> protocol(std::stoi(argv[1]));
     read_processes_from_config(argv[4], protocol, std::stoi(argv[2]));
-    ZhengLA<LatticeSet> la(8, 16, std::stoi(argv[2]), protocol);
+    ZhengLA<LatticeSet> la(3, 8, std::stoi(argv[2]), protocol);
     std::cout << "Start server. port: " << std::stoi(argv[1]) << std::endl;
     protocol.start(&la);
     std::this_thread::sleep_for(std::chrono::seconds(20));

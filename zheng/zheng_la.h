@@ -31,7 +31,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
     ZhengLA(uint64_t f, uint64_t n, uint64_t i, ProtocolTcp<L> &protocol) : f(f), n(n), i(i), protocol(protocol), v(n) {
         l = n - f / 2;
-        log_f = std::log2(f);
+        log_f = std::ceil(std::log2(f));
         acceptVal.resize(log_f + 1);
     }
 
