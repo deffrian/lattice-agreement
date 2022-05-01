@@ -14,4 +14,4 @@ if(CMAKE_THREAD_LIBS_INIT)
     target_link_libraries(generalizer "${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
-include_directories(../general)
+include_directories(..)

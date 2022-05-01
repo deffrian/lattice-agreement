@@ -5,9 +5,10 @@
 #include <cstdint>
 #include <condition_variable>
 
-#include "lattice_agreement.h"
+#include "general/lattice_agreement.h"
+#include "general/lattice.h"
+
 #include "protocol.h"
-#include "lattice.h"
 
 template<typename L>
 struct ZhengLA : LatticeAgreement<L>, Callback<L> {

@@ -1,9 +1,12 @@
 #pragma once
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <iostream>
 #include <arpa/inet.h>
+#include <cassert>
+#include <vector>
+#include <thread>
+
+
 
 struct ProcessDescriptor {
     std::string ip_address;

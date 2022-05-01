@@ -4,7 +4,7 @@
 #include <thread>
 #include <map>
 
-#include "network.h"
+#include "general/network.h"
 
 enum MessageType : uint8_t {
     Write = 0,

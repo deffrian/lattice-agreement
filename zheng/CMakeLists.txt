@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(faleiro)
+project(zheng)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -14,4 +14,4 @@ if(CMAKE_THREAD_LIBS_INIT)
     target_link_libraries(zheng "${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
-include_directories(../general)
+include_directories(..)

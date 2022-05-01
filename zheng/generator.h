@@ -1,8 +1,18 @@
-//
-// Created by deffrian on 26.04.22.
-//
+#pragma once
 
-#ifndef LATTICE_AGREEMENT_GENERATOR_H
-#define LATTICE_AGREEMENT_GENERATOR_H
+#include "zheng_la.h"
 
-#endif //LATTICE_AGREEMENT_GENERATOR_H
+template<typename L>
+struct ZhengLAGenerator {
+
+    std::map<uint64_t, ZhengLA<L>*> active;
+    std::set<uint64_t> terminated;
+
+    L propose_to(uint64_t idx, const L &prop) {
+        if (terminated.contains(idx)) {
+            exit(EXIT_FAILURE);
+        }
+
+        return active[idx]->start(prop);
+    }
+};

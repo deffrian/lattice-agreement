@@ -7,3 +7,4 @@ add_executable(lattice_agreement main.cpp)
 
 add_subdirectory(faleiro)
 add_subdirectory(zheng)
+add_subdirectory(generalizer)

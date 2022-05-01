@@ -1,8 +1,8 @@
-//
-// Created by deffrian on 22.04.22.
-//
+#pragma once
 
-#ifndef LATTICE_AGREEMENT_GENERALIZED_LATTICE_AGREEMENT_H
-#define LATTICE_AGREEMENT_GENERALIZED_LATTICE_AGREEMENT_H
-
-#endif //LATTICE_AGREEMENT_GENERALIZED_LATTICE_AGREEMENT_H
+template<typename L>
+struct GeneralizedLA {
+    virtual void start() = 0;
+    virtual L propose(const L &x) = 0;
+    virtual ~GeneralizedLA() = default;
+};

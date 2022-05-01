@@ -1,10 +1,11 @@
 #include "generalizer.h"
-#include "lattice.h"
+#include "general/lattice.h"
+#include "zheng/generator.h"
 
 int main(int argc, char *argv[]) {
-
     Protocol<LatticeSet> protocol(8090);
-    Generalizer<LatticeSet> la(protocol);
+    ZhengLAGenerator<LatticeSet> la_gen;
+    Generalizer<LatticeSet, ZhengLAGenerator<LatticeSet>> la(protocol, la_gen, 8, 4);
 
     protocol.start(&la);
 
