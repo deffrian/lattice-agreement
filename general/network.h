@@ -66,7 +66,7 @@ int open_socket(const ProcessDescriptor &descriptor) {
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
-        std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << std::endl;
+        std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno << std::endl;
         assert(false);
     }
     return sock;
