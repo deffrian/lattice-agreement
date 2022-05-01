@@ -10,4 +10,4 @@ RUN cmake ..
 
 RUN make zheng
 
-CMD ["./zheng/zheng $PORT $ID $ELEM"]
+CMD ["./zheng/zheng $PORT $ID $ELEM > log.txt"]

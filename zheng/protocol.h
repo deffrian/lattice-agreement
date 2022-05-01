@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <map>
+#include <atomic>
 
 #include "general/network.h"
 
@@ -32,7 +33,7 @@ struct Callback {
 template<typename L>
 struct ProtocolTcp {
 
-    std::atomic_bool should_stop = false;
+    std::atomic<bool> should_stop = false;
 
     std::map<uint64_t, ProcessDescriptor> processes;
 
