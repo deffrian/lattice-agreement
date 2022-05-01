@@ -1,0 +1,8 @@
+//
+// Created by deffrian on 23.04.22.
+//
+
+#ifndef LATTICE_AGREEMENT_PROTOCOL_H
+#define LATTICE_AGREEMENT_PROTOCOL_H
+
+#endif //LATTICE_AGREEMENT_PROTOCOL_H

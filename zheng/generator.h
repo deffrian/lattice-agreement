@@ -1,0 +1,8 @@
+//
+// Created by deffrian on 26.04.22.
+//
+
+#ifndef LATTICE_AGREEMENT_GENERATOR_H
+#define LATTICE_AGREEMENT_GENERATOR_H
+
+#endif //LATTICE_AGREEMENT_GENERATOR_H
