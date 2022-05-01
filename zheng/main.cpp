@@ -18,7 +18,7 @@ void read_processes_from_config(const std::string &acceptors_config, ProtocolTcp
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
+    if (argc != 7) {
         std::cout << "usage: n f port id elem config" << std::endl;
         assert(false);
     }
