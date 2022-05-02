@@ -156,7 +156,7 @@ public:
         uint8_t message_type = WriteAck;
 
         std::cout << ">> sending write ack to " << to << std::endl;
-        int sock = open_socket(processes[to]);
+        int sock = open_socket(processes.at(to));
 
         send(sock, &message_type, 1, 0);
         send_number(sock, from);
@@ -170,7 +170,7 @@ public:
         uint8_t message_type = ReadAck;
 
         std::cout << ">> sending read ack to " << to << std::endl;
-        int sock = open_socket(processes[to]);
+        int sock = open_socket(processes.at(to));
 
         send(sock, &message_type, 1, 0);
         send_number(sock,from);
