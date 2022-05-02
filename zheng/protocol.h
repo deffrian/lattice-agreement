@@ -88,7 +88,7 @@ private:
             }
             uint64_t from = read_number(client_fd);
             uint64_t message_id_rec = read_number(client_fd);
-            std::cout << "New connection from " << from << " message_id: " << message_id_rec << " type: " << message_type << std::endl;
+            std::cout << "New connection from " << from << " message_id: " << message_id_rec << " type: " << (int)message_type << std::endl;
             if (message_type == Value) {
                 callback->receive_value(read_lattice_vector<L>(client_fd), message_id_rec);
             } else if (message_type == Write) {
