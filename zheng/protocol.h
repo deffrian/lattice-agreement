@@ -17,15 +17,15 @@ enum MessageType : uint8_t {
 
 template<typename L>
 struct Callback {
-    virtual void receive_write_ack(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r) = 0;
+    virtual void receive_write_ack(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t message_id) = 0;
 
-    virtual void receive_read_ack(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r) = 0;
+    virtual void receive_read_ack(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t message_id) = 0;
 
-    virtual void receive_value(const std::vector<L> &value) = 0;
+    virtual void receive_value(const std::vector<L> &value, uint64_t message_id) = 0;
 
-    virtual void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from) = 0;
+    virtual void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from, uint64_t message_id) = 0;
 
-    virtual void receive_read(uint64_t rec_r, uint64_t from) = 0;
+    virtual void receive_read(uint64_t rec_r, uint64_t from, uint64_t message_id) = 0;
 
     virtual ~Callback() = default;
 };
@@ -88,25 +88,25 @@ private:
             }
             uint64_t from = read_number(client_fd);
             uint64_t message_id_rec = read_number(client_fd);
-            std::cout << "New connection from " << from << " message_id: " << message_id_rec << std::endl;
+//            std::cout << "New connection from " << from << " message_id: " << message_id_rec << std::endl;
             if (message_type == Value) {
-                callback->receive_value(read_lattice_vector<L>(client_fd));
+                callback->receive_value(read_lattice_vector<L>(client_fd), message_id_rec);
             } else if (message_type == Write) {
                 auto val = read_lattice_vector<L>(client_fd);
                 uint64_t k = read_number(client_fd);
                 uint64_t r = read_number(client_fd);
-                callback->receive_write(val, k, r, from);
+                callback->receive_write(val, k, r, from, message_id_rec);
             } else if (message_type == Read) {
                 uint64_t r = read_number(client_fd);
-                callback->receive_read(r, from);
+                callback->receive_read(r, from, message_id_rec);
             } else if (message_type == WriteAck) {
                 auto val = read_recVal(client_fd);
                 uint64_t r = read_number(client_fd);
-                callback->receive_write_ack(val, r);
+                callback->receive_write_ack(val, r, message_id_rec);
             } else if (message_type == ReadAck) {
                 auto recVal = read_recVal(client_fd);
                 uint64_t r = read_number(client_fd);
-                callback->receive_read_ack(recVal, r);
+                callback->receive_read_ack(recVal, r, message_id_rec);
             } else {
                 std::cout << "unknown message" << std::endl;
                 assert(false);
@@ -156,7 +156,7 @@ public:
         }
     }
 
-    void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t from) {
+    void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t from, uint64_t cur_message_id) {
         uint8_t message_type = WriteAck;
 
         std::cout << ">> sending write ack to " << to << std::endl;
@@ -164,14 +164,14 @@ public:
 
         send(sock, &message_type, 1, 0);
         send_number(sock, from);
-        send_number(sock, message_id++);
+        send_number(sock, cur_message_id);
         send_recVal(sock, recVal);
         send_number(sock, rec_r);
         close(sock);
 //        std::cout << "Connection to " << to << "closed" << std::endl;
     }
 
-    void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from) {
+    void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from, uint64_t cur_message_id) {
         uint8_t message_type = ReadAck;
 
         std::cout << ">> sending read ack to " << to << std::endl;
@@ -179,7 +179,7 @@ public:
 
         send(sock, &message_type, 1, 0);
         send_number(sock,from);
-        send_number(sock, message_id++);
+        send_number(sock, cur_message_id);
         send_recVal(sock, recVal);
         send_number(sock,r);
         close(sock);
