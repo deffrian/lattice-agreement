@@ -39,7 +39,7 @@ struct ThreadPool {
         }
     }
 
-    void add_job(T val) {
+    void add_job(const T &val) {
         std::lock_guard<std::mutex> lk(mt);
         queue.push(val);
         cv.notify_one();

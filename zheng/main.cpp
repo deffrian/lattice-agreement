@@ -32,6 +32,7 @@ int main(int argc, char *argv[]) {
     read_processes_from_config(config, protocol, id);
     ZhengLA<LatticeSet> la(f, n, id, protocol);
     std::cout << "Start server. port: " << port << std::endl;
+    std::cout << "Callback: " << &la << std::endl;
     protocol.start(&la);
     std::cout << "Server started" << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(20));

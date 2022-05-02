@@ -53,7 +53,7 @@ struct ProtocolTcp {
     void start(Callback<L> *callback) {
         std::cout << "starting server thread processes cnt: " << processes.size() << std::endl;
         std::thread(
-                [&]() {
+                [&, callback]() {
                     while (!should_stop) {
                         int new_socket = server.accept_client();
                         if (new_socket < 0) {
@@ -95,7 +95,8 @@ private:
         std::cout << "New connection from " << from << " message_id: " << message_id_rec << " type: "
                   << (int) message_type << std::endl;
         if (message_type == Value) {
-            callback->receive_value(read_lattice_vector<L>(client_fd), message_id_rec);
+            auto lv = read_lattice_vector<L>(client_fd);
+            callback->receive_value(lv, message_id_rec);
         } else if (message_type == Write) {
             auto val = read_lattice_vector<L>(client_fd);
             uint64_t k = read_number(client_fd);
