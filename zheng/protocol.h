@@ -34,6 +34,7 @@ template<typename L>
 struct ProtocolTcp {
 
     std::atomic<bool> should_stop = false;
+    std::atomic<uint64_t> message_id = 0;
 
     std::map<uint64_t, ProcessDescriptor> processes;
 
@@ -86,7 +87,8 @@ private:
                 assert(false);
             }
             uint64_t from = read_number(client_fd);
-//            std::cout << "New connection from " << from << std::endl;
+            uint64_t message_id_rec = read_number(client_fd);
+            std::cout << "New connection from " << from << " message_id: " << message_id_rec << std::endl;
             if (message_type == Value) {
                 callback->receive_value(read_lattice_vector<L>(client_fd));
             } else if (message_type == Write) {
@@ -130,6 +132,7 @@ public:
 
             send(sock, &message_type, 1, 0);
             send_number(sock,from);
+            send_number(sock, message_id++);
             send_lattice_vector(sock, v);
             send_number(sock, k);
             send_number(sock, r);
@@ -146,6 +149,7 @@ public:
 
             send(sock, &message_type, 1, 0);
             send_number(sock, from);
+            send_number(sock, message_id++);
             send_number(sock, r);
             close(sock);
 //            std::cout << "Connection to " << descriptor.second.id << "closed" << std::endl;
@@ -160,6 +164,7 @@ public:
 
         send(sock, &message_type, 1, 0);
         send_number(sock, from);
+        send_number(sock, message_id++);
         send_recVal(sock, recVal);
         send_number(sock, rec_r);
         close(sock);
@@ -174,6 +179,7 @@ public:
 
         send(sock, &message_type, 1, 0);
         send_number(sock,from);
+        send_number(sock, message_id++);
         send_recVal(sock, recVal);
         send_number(sock,r);
         close(sock);
@@ -188,6 +194,7 @@ public:
 
             send(sock, &message_type, 1, 0);
             send_number(sock, from);
+            send_number(sock, message_id++);
             send_number(sock, v.size());
             for (size_t i = 0; i < v.size(); ++i) {
                 send_lattice(sock, v[i]);
