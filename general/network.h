@@ -74,7 +74,11 @@ int open_socket(const ProcessDescriptor &descriptor) {
 
 
 void send_number(int sock, uint64_t num) {
-    send(sock, &num, 64 / 8, 0);
+    ssize_t len = send(sock, &num, 64 / 8, 0);
+    if (len != 64 / 8) {
+        std::cout << "error sending number: " << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
 }
 
 template<typename L>
