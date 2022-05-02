@@ -34,13 +34,13 @@ template<typename L>
 struct ProtocolTcp {
 
     std::atomic<bool> should_stop = false;
-    std::atomic<uint64_t> message_id = rand() % 1000;
+    std::atomic<uint64_t> message_id;
 
     std::map<uint64_t, ProcessDescriptor> processes;
 
     TcpServer server;
 
-    explicit ProtocolTcp(uint64_t port) : server(port) {}
+    explicit ProtocolTcp(uint64_t port, uint64_t id) : server(port), message_id(id * 100) {}
 
     void add_process(const ProcessDescriptor &descriptor) {
         processes[descriptor.id] = descriptor;

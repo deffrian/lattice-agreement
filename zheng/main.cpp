@@ -22,16 +22,22 @@ int main(int argc, char *argv[]) {
         std::cout << "usage: n f port id elem config" << std::endl;
         assert(false);
     }
-    ProtocolTcp<LatticeSet> protocol(std::stoi(argv[3]));
-    read_processes_from_config(argv[6], protocol, std::stoi(argv[4]));
-    ZhengLA<LatticeSet> la(std::stoi(argv[2]), std::stoi(argv[1]), std::stoi(argv[5]), protocol);
-    std::cout << "Start server. port: " << std::stoi(argv[3]) << std::endl;
+    uint64_t n = std::stoi(argv[1]);
+    uint64_t f = std::stoi(argv[2]);
+    uint64_t port = std::stoi(argv[3]);
+    uint64_t id = std::stoi(argv[4]);
+    uint64_t elem = std::stoi(argv[5]);
+    std::string config = argv[6];
+    ProtocolTcp<LatticeSet> protocol(port, id);
+    read_processes_from_config(config, protocol, id);
+    ZhengLA<LatticeSet> la(f, n, id, protocol);
+    std::cout << "Start server. port: " << port << std::endl;
     protocol.start(&la);
     std::cout << "Server started" << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(20));
-    std::cout << "process id: " << std::stoi(argv[4]) << std::endl;
+    std::cout << "process id: " << id << std::endl;
     LatticeSet s;
-    s.insert(std::stoi(argv[5]));
+    s.insert(elem);
     auto begin = std::chrono::steady_clock::now();
     auto y = la.start(s);
     auto end = std::chrono::steady_clock::now();
