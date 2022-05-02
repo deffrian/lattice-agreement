@@ -34,7 +34,7 @@ template<typename L>
 struct ProtocolTcp {
 
     std::atomic<bool> should_stop = false;
-    std::atomic<uint64_t> message_id = 0;
+    std::atomic<uint64_t> message_id = rand() % 1000;
 
     std::map<uint64_t, ProcessDescriptor> processes;
 
@@ -127,12 +127,13 @@ public:
     void send_write(const std::vector<L> &v, uint64_t k, uint64_t r, uint64_t from) {
         uint8_t message_type = Write;
         for (const auto &descriptor : processes) {
-            std::cout << ">> sending write to " << descriptor.second.id << " from " << from << std::endl;
+            uint64_t cur_message_id = message_id++;
+            std::cout << ">> sending write to " << descriptor.second.id << " from " << from << " message id " << cur_message_id << std::endl;
             int sock = open_socket(descriptor.second);
 
             send(sock, &message_type, 1, 0);
             send_number(sock,from);
-            send_number(sock, message_id++);
+            send_number(sock, cur_message_id);
             send_lattice_vector(sock, v);
             send_number(sock, k);
             send_number(sock, r);
