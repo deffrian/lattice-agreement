@@ -46,7 +46,8 @@ int main(int argc, char *argv[]) {
         std::cout << elem <<  ' ';
     }
     std::cout << std::endl;
-    std::cout << "Elapsed microseconds: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+    std::cout << "Elapsed microseconds: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(30));
+    std::cout.flush();
     protocol.stop();
 }
