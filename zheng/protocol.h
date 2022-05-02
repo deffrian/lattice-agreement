@@ -125,7 +125,7 @@ public:
     void send_write(const std::vector<L> &v, uint64_t k, uint64_t r, uint64_t from) {
         uint8_t message_type = Write;
         for (const auto &descriptor : processes) {
-            std::cout << ">> sending write to " << descriptor.second.id << std::endl;
+            std::cout << ">> sending write to " << descriptor.second.id << " from " << from << std::endl;
             int sock = open_socket(descriptor.second);
 
             send(sock, &message_type, 1, 0);
