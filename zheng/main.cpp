@@ -27,9 +27,9 @@ int main(int argc, char *argv[]) {
     ZhengLA<LatticeSet> la(std::stoi(argv[2]), std::stoi(argv[1]), std::stoi(argv[5]), protocol);
     std::cout << "Start server. port: " << std::stoi(argv[3]) << std::endl;
     protocol.start(&la);
-    std::this_thread::sleep_for(std::chrono::seconds(20));
     std::cout << "Server started" << std::endl;
-
+    std::this_thread::sleep_for(std::chrono::seconds(20));
+    std::cout << "process id: " << std::stoi(argv[4]);
     LatticeSet s;
     s.insert(std::stoi(argv[5]));
     auto begin = std::chrono::steady_clock::now();
