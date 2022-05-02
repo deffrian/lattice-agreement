@@ -5,9 +5,10 @@
 #include <cstdint>
 #include <condition_variable>
 
-#include "lattice_agreement.h"
+#include "general/lattice_agreement.h"
+#include "general/lattice.h"
+
 #include "protocol.h"
-#include "lattice.h"
 
 template<typename L>
 struct ZhengLA : LatticeAgreement<L>, Callback<L> {
@@ -30,7 +31,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
     ZhengLA(uint64_t f, uint64_t n, uint64_t i, ProtocolTcp<L> &protocol) : f(f), n(n), i(i), protocol(protocol), v(n) {
         l = n - f / 2;
-        log_f = std::log2(f);
+        log_f = std::ceil(std::log2(f));
         acceptVal.resize(log_f + 1);
     }
 
@@ -114,7 +115,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         }
     }
 
-    void receive_write_ack(const AcceptValT &recVal, uint64_t rec_r) override {
+    void receive_write_ack(const AcceptValT &recVal, uint64_t rec_r, uint64_t message_id) override {
         if (rec_r == r) {
             std::lock_guard lockGuard{cv_m};
             std::cout << "<< write ack received" << std::endl;
@@ -133,7 +134,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         }
     }
 
-    void receive_read_ack(const AcceptValT &recVal, uint64_t rec_r) override {
+    void receive_read_ack(const AcceptValT &recVal, uint64_t rec_r, uint64_t message_id) override {
         if (rec_r == r && build_w) {
             std::lock_guard lockGuard{cv_m};
             std::cout << "<< read ack received" << std::endl;
@@ -150,10 +151,9 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         }
     }
 
-    void receive_value(const std::vector<L> &value) override {
+    void receive_value(const std::vector<L> &value, uint64_t message_id) override {
         std::lock_guard lockGuard{cv_m};
         std::cout << "<< value received" << std::endl;
-//        std::cout << "locked" << std::endl;
         value_received++;
         for (size_t k = 0; k < n; ++k) {
             v[k] = L::join(v[k], value[k]);
@@ -161,18 +161,17 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         cv.notify_one();
     }
 
-    void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from) override {
+    void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from, uint64_t message_id) override {
         std::lock_guard lockGuard{cv_m};
-        std::cout << "<< write received from " << from << std::endl;
-//        std::cout << "locked" << std::endl;
+        std::cout << "<< write received from " << from << " message id " << message_id << std::endl;
         acceptVal[rec_r].emplace_back(value, k);
-        protocol.send_write_ack(from, acceptVal[rec_r], rec_r, i);
+        protocol.send_write_ack(from, acceptVal[rec_r], rec_r, i, message_id);
     }
 
-    void receive_read(uint64_t rec_r, uint64_t from) override {
+    void receive_read(uint64_t rec_r, uint64_t from, uint64_t message_id) override {
         std::lock_guard lockGuard{cv_m};
         std::cout << "<< read received from " << from << std::endl;
 //        std::cout << "locked" << std::endl;
-        protocol.send_read_ack(from, acceptVal[rec_r], rec_r, i);
+        protocol.send_read_ack(from, acceptVal[rec_r], rec_r, i, message_id);
     }
 };

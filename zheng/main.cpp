@@ -18,25 +18,37 @@ void read_processes_from_config(const std::string &acceptors_config, ProtocolTcp
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        std::cout << "usage: port id elem config" << std::endl;
+    if (argc != 7) {
+        std::cout << "usage: n f port id elem config" << std::endl;
         assert(false);
     }
-    ProtocolTcp<LatticeSet> protocol(std::stoi(argv[1]));
-    read_processes_from_config(argv[4], protocol, std::stoi(argv[2]));
-    ZhengLA<LatticeSet> la(8, 16, std::stoi(argv[2]), protocol);
-    std::cout << "Start server. port: " << std::stoi(argv[1]) << std::endl;
+    uint64_t n = std::stoi(argv[1]);
+    uint64_t f = std::stoi(argv[2]);
+    uint64_t port = std::stoi(argv[3]);
+    uint64_t id = std::stoi(argv[4]);
+    uint64_t elem = std::stoi(argv[5]);
+    std::string config = argv[6];
+    ProtocolTcp<LatticeSet> protocol(port, id);
+    read_processes_from_config(config, protocol, id);
+    ZhengLA<LatticeSet> la(f, n, id, protocol);
+    std::cout << "Start server. port: " << port << std::endl;
+    std::cout << "Callback: " << &la << std::endl;
     protocol.start(&la);
-    std::this_thread::sleep_for(std::chrono::seconds(20));
     std::cout << "Server started" << std::endl;
-
+    std::this_thread::sleep_for(std::chrono::seconds(20));
+    std::cout << "process id: " << id << std::endl;
     LatticeSet s;
-    s.insert(std::stoi(argv[3]));
+    s.insert(elem);
+    auto begin = std::chrono::steady_clock::now();
     auto y = la.start(s);
+    auto end = std::chrono::steady_clock::now();
     std::cout << "Answer: " << std::endl;
     for (auto elem : y.set) {
         std::cout << elem <<  ' ';
     }
     std::cout << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(30));
+    std::cout << "Elapsed microseconds: " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(60));
+    std::cout.flush();
+    protocol.stop();
 }

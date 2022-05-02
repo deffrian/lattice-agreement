@@ -1,9 +1,11 @@
 #pragma once
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <iostream>
 #include <arpa/inet.h>
+#include <cassert>
+#include <vector>
+#include <thread>
+#include <unistd.h>
 
 struct ProcessDescriptor {
     std::string ip_address;
@@ -47,7 +49,7 @@ std::vector<L> read_lattice_vector(int client_fd) {
 }
 
 int open_socket(const ProcessDescriptor &descriptor) {
-    std::cout << "Open connection to " << descriptor.id << std::endl;
+    std::cout << "Open connection to " << descriptor.id << " port: " << descriptor.port << " ip: " << descriptor.ip_address << std::endl;
     int sock = 0;
     struct sockaddr_in serv_addr;
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -64,7 +66,7 @@ int open_socket(const ProcessDescriptor &descriptor) {
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
-        std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << std::endl;
+        std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno << std::endl;
         assert(false);
     }
     return sock;
@@ -72,7 +74,11 @@ int open_socket(const ProcessDescriptor &descriptor) {
 
 
 void send_number(int sock, uint64_t num) {
-    send(sock, &num, 64 / 8, 0);
+    ssize_t len = send(sock, &num, 64 / 8, 0);
+    if (len != 64 / 8) {
+        std::cout << "error sending number: " << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
 }
 
 template<typename L>
