@@ -125,15 +125,12 @@ public:
     void send_write(const std::vector<L> &v, uint64_t k, uint64_t r, uint64_t from) {
         uint8_t message_type = Write;
         for (const auto &descriptor : processes) {
-            int sock = open_socket(descriptor.second);
             std::cout << ">> sending write to " << descriptor.second.id << std::endl;
+            int sock = open_socket(descriptor.second);
 
             send(sock, &message_type, 1, 0);
             send_number(sock,from);
-            send_number(sock, v.size());
-            for (size_t i = 0; i < v.size(); ++i) {
-                send_lattice(sock, v[i]);
-            }
+            send_lattice_vector(sock, v);
             send_number(sock, k);
             send_number(sock, r);
             close(sock);
@@ -144,8 +141,8 @@ public:
     void send_read(uint64_t r, uint64_t from) {
         uint8_t message_type = Read;
         for (const auto &descriptor : processes) {
-            int sock = open_socket(descriptor.second);
             std::cout << ">> sending read to " << descriptor.second.id << std::endl;
+            int sock = open_socket(descriptor.second);
 
             send(sock, &message_type, 1, 0);
             send_number(sock, from);
@@ -158,8 +155,8 @@ public:
     void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t from) {
         uint8_t message_type = WriteAck;
 
-        int sock = open_socket(processes[to]);
         std::cout << ">> sending write ack to " << to << std::endl;
+        int sock = open_socket(processes[to]);
 
         send(sock, &message_type, 1, 0);
         send_number(sock, from);
@@ -172,8 +169,8 @@ public:
     void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from) {
         uint8_t message_type = ReadAck;
 
-        int sock = open_socket(processes[to]);
         std::cout << ">> sending read ack to " << to << std::endl;
+        int sock = open_socket(processes[to]);
 
         send(sock, &message_type, 1, 0);
         send_number(sock,from);
@@ -186,8 +183,8 @@ public:
     void send_value(const std::vector<L> &v, uint64_t from) {
         uint8_t message_type = Value;
         for (const auto &descriptor : processes) {
-            int sock = open_socket(descriptor.second);
             std::cout << ">> sending value to " << descriptor.second.id << std::endl;
+            int sock = open_socket(descriptor.second);
 
             send(sock, &message_type, 1, 0);
             send_number(sock, from);
