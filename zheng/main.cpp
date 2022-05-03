@@ -19,7 +19,7 @@ void read_processes_from_config(const std::string &acceptors_config, ProtocolTcp
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
+    if (argc != 6) {
         std::cout << "usage: ip port coordinator_port coordinator_ip coordinator_client_port" << std::endl;
         assert(false);
     }
