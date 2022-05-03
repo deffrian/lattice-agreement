@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     LACoordinatorClient<LatticeSet> coordinator_client(coordinator_client_port, coordinator_descriptor);
 
     // Register self
-    uint64_t id = coordinator_client.send_register(port, ip);
+    uint64_t id = coordinator_client.send_register(port, coordinator_client_port, ip);
     uint64_t n;
     uint64_t f;
     LatticeSet initial_value;
@@ -113,4 +113,5 @@ int main2(int argc, char *argv[]) {
     std::this_thread::sleep_for(std::chrono::seconds(60));
     std::cout.flush();
     protocol.stop();
+    return 0;
 }

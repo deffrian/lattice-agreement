@@ -22,10 +22,11 @@ struct LACoordinatorClient {
                                                                                    coordinator_descriptor(std::move(
                                                                                            coordinator_descriptor)) {}
 
-    uint64_t send_register(uint64_t protocol_port, const std::string &ip) {
+    uint64_t send_register(uint64_t protocol_port, uint64_t coordinator_client_port, const std::string &ip) {
         int sock = open_socket(coordinator_descriptor);
         send_byte(sock, Register);
         send_number(sock, protocol_port);
+        send_number(sock, coordinator_client_port);
         send_string(sock, ip);
         my_id = read_number(sock);
         close(sock);
@@ -75,6 +76,7 @@ struct LACoordinator {
     TcpServer server;
 
     std::vector<ProcessDescriptor> known_peers;
+    std::vector<ProcessDescriptor> coordinator_clients;
 
     LACoordinator(uint64_t n, uint64_t f, uint64_t port) : n(n), f(f), server(port) {
         // Wait for all registers
@@ -88,17 +90,21 @@ struct LACoordinator {
                 assert(false);
             }
             uint64_t protocol_port = read_number(sock);
+            uint64_t coordinator_client_port = read_number(sock);
             std::string ip = read_string(sock);
 
             // send identifier
             send_number(sock, i);
             close(sock);
             known_peers.push_back({ip, i, protocol_port});
+            coordinator_clients.push_back({ip, i, coordinator_client_port});
+            std::cout << "ip: " << ip << " id: " << i << " port: " << protocol_port << " coord_client_port: "
+                      << coordinator_client_port << std::endl;
         }
 
         // Send test info
         std::cout << "Sending test info" << std::endl;
-        for (const auto &peer : known_peers) {
+        for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
             send_number(sock, n);
             send_number(sock, f);
@@ -115,7 +121,7 @@ struct LACoordinator {
 
         // Send start
         std::cout << "Sending start" << std::endl;
-        for (const auto &peer : known_peers) {
+        for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
             close(sock);
         }
@@ -140,7 +146,7 @@ struct LACoordinator {
         }
 
         // Send stop
-        for (const auto &peer : known_peers) {
+        for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
             close(sock);
         }

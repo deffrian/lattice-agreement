@@ -117,6 +117,7 @@ void send_number(int sock, uint64_t num) {
 }
 
 void send_string(int sock, const std::string &s) {
+    send_number(sock, s.length());
     ssize_t len = send(sock, s.data(), s.length(), 0);
     if (len != s.length()) {
         std::cout << "error sending string: " << errno << std::endl;
