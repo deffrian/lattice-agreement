@@ -128,6 +128,7 @@ struct LACoordinator {
 
         // Wait for results
         std::cout << "Waiting for results" << std::endl;
+        uint64_t total_time = 0;
         for (uint64_t i = 0; i < n; ++i) {
             int sock = server.accept_client();
             uint8_t message_type = read_byte(sock);
@@ -136,6 +137,7 @@ struct LACoordinator {
                 assert(false);
             }
             uint64_t elapsed_time = read_number(sock);
+            total_time += elapsed_time;
             uint64_t id = read_number(sock);
             L value = read_lattice<L>(sock);
             std::cout << "Result from: " << id << " elapsed time: " << elapsed_time << std::endl;
@@ -144,6 +146,7 @@ struct LACoordinator {
             }
             std::cout << std::endl;
         }
+        std::cout << "Average time: " << (double) total_time / (double) n << std::endl;
 
         // Send stop
         for (const auto &peer : coordinator_clients) {
