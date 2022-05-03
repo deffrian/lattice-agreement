@@ -13,6 +13,17 @@ struct ProcessDescriptor {
     uint64_t port;
 };
 
+uint8_t read_byte(int client_fd) {
+    uint8_t byte;
+
+    ssize_t len = read(client_fd, &byte, 1);
+    if (len != 1) {
+        std::cout << "error reading byte" << std::endl;
+        assert(false);
+    }
+    return byte;
+}
+
 uint64_t read_number(int client_fd) {
     uint64_t number;
     size_t bytes_read = 0;
@@ -26,6 +37,22 @@ uint64_t read_number(int client_fd) {
         bytes_read += len;
     }
     return number;
+}
+
+std::string read_string(int client_fd) {
+    uint64_t s_len = read_number(client_fd);
+    std::string s(s_len, ' ');
+    size_t bytes_read = 0;
+
+    while (bytes_read != s_len) {
+        ssize_t len = read(client_fd, s.data() + bytes_read, s_len - bytes_read);
+        if (len <= 0) {
+            std::cout << "error reading string" << std::endl;
+            assert(false);
+        }
+        bytes_read += len;
+    }
+    return s;
 }
 
 template<typename L>
@@ -73,10 +100,26 @@ int open_socket(const ProcessDescriptor &descriptor) {
 }
 
 
+void send_byte(int sock, uint8_t byte) {
+    ssize_t len = send(sock, &byte, 1, 0);
+    if (len != 1) {
+        std::cout << "error sending number: " << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 void send_number(int sock, uint64_t num) {
     ssize_t len = send(sock, &num, 64 / 8, 0);
     if (len != 64 / 8) {
         std::cout << "error sending number: " << errno << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void send_string(int sock, const std::string &s) {
+    ssize_t len = send(sock, s.data(), s.length(), 0);
+    if (len != s.length()) {
+        std::cout << "error sending string: " << errno << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -127,7 +170,15 @@ struct TcpServer {
     }
 
     int accept_client() {
-        return accept(server_fd, (struct sockaddr *) &address, (socklen_t *) &addrlen);
+        struct sockaddr_in client_addr;
+        return accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
+    }
+
+    int accept_client(std::string &client_ip) {
+        struct sockaddr_in client_addr;
+        client_ip.resize(INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip.data(), INET_ADDRSTRLEN);
+        return accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
     }
 
 };
