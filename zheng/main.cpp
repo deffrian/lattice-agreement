@@ -20,18 +20,19 @@ void read_processes_from_config(const std::string &acceptors_config, ProtocolTcp
 
 int main(int argc, char *argv[]) {
     if (argc != 5) {
-        std::cout << "usage: port coordinator_port coordinator_ip coordinator_client_port" << std::endl;
+        std::cout << "usage: ip port coordinator_port coordinator_ip coordinator_client_port" << std::endl;
         assert(false);
     }
 
-    uint64_t port = std::stoi(argv[1]);
-    uint64_t coordinator_port = std::stoi(argv[2]);
-    uint64_t coordinator_client_port = std::stoi(argv[4]);
-    ProcessDescriptor coordinator_descriptor{argv[3], (uint64_t)-1, coordinator_port};
+    std::string ip = argv[1];
+    uint64_t port = std::stoi(argv[2]);
+    uint64_t coordinator_port = std::stoi(argv[3]);
+    uint64_t coordinator_client_port = std::stoi(argv[5]);
+    ProcessDescriptor coordinator_descriptor{argv[4], (uint64_t)-1, coordinator_port};
     LACoordinatorClient<LatticeSet> coordinator_client(coordinator_client_port, coordinator_descriptor);
 
     // Register self
-    uint64_t id = coordinator_client.send_register(port);
+    uint64_t id = coordinator_client.send_register(port, ip);
     uint64_t n;
     uint64_t f;
     LatticeSet initial_value;

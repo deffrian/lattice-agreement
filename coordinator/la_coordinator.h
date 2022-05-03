@@ -22,10 +22,11 @@ struct LACoordinatorClient {
                                                                                    coordinator_descriptor(std::move(
                                                                                            coordinator_descriptor)) {}
 
-    uint64_t send_register(uint64_t protocol_port) {
+    uint64_t send_register(uint64_t protocol_port, const std::string &ip) {
         int sock = open_socket(coordinator_descriptor);
         send_byte(sock, Register);
         send_number(sock, protocol_port);
+        send_string(sock, ip);
         my_id = read_number(sock);
         close(sock);
         return my_id;
@@ -77,15 +78,17 @@ struct LACoordinator {
 
     LACoordinator(uint64_t n, uint64_t f, uint64_t port) : n(n), f(f), server(port) {
         // Wait for all registers
+        std::cout << "Wait for registers" << std::endl;
         for (uint64_t i = 0; i < n; ++i) {
-            std::string ip;
-            int sock = server.accept_client(ip);
+            int sock = server.accept_client();
+            std::cout << "New registration" << std::endl;
             uint8_t message_type = read_byte(sock);
             if (message_type != Register) {
                 std::cout << "Wrong message" << std::endl;
                 assert(false);
             }
             uint64_t protocol_port = read_number(sock);
+            std::string ip = read_string(sock);
 
             // send identifier
             send_number(sock, i);
@@ -94,6 +97,7 @@ struct LACoordinator {
         }
 
         // Send test info
+        std::cout << "Sending test info" << std::endl;
         for (const auto &peer : known_peers) {
             int sock = open_socket(peer);
             send_number(sock, n);
@@ -110,12 +114,14 @@ struct LACoordinator {
         }
 
         // Send start
+        std::cout << "Sending start" << std::endl;
         for (const auto &peer : known_peers) {
             int sock = open_socket(peer);
             close(sock);
         }
 
         // Wait for results
+        std::cout << "Waiting for results" << std::endl;
         for (uint64_t i = 0; i < n; ++i) {
             int sock = server.accept_client();
             uint8_t message_type = read_byte(sock);
