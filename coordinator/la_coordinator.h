@@ -54,6 +54,7 @@ struct LACoordinatorClient {
                 peers.push_back({ip, id, port});
             }
         }
+        send_number(sock, 11);
         close(sock);
     }
 
@@ -136,6 +137,8 @@ struct LACoordinator {
                 send_string(sock, elem.ip_address);
                 send_number(sock, elem.id);
             }
+            uint64_t ok = read_number(sock);
+            LOG(INFO) << ok;
             close(sock);
         }
 
