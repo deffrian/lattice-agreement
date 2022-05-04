@@ -20,7 +20,7 @@ uint8_t read_byte(int client_fd) {
     ssize_t len = read(client_fd, &byte, 1);
     if (len != 1) {
         LOG(ERROR) << "Error reading byte" << errno;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Error reading byte: " + std::to_string(len));
     }
     return byte;
 }
@@ -33,7 +33,7 @@ uint64_t read_number(int client_fd) {
         ssize_t len = read(client_fd, (char*)(&number) + bytes_read, 64 / 8 - bytes_read);
         if (len <= 0) {
             LOG(ERROR) << "Error reading number" << errno;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Error reading number: " + std::to_string(len));
         }
         bytes_read += len;
     }
@@ -49,7 +49,7 @@ std::string read_string(int client_fd) {
         ssize_t len = read(client_fd, s.data() + bytes_read, s_len - bytes_read);
         if (len <= 0) {
             LOG(ERROR) << "Error reading string" << errno;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Error reading string: " + std::to_string(len));
         }
         bytes_read += len;
     }
@@ -105,7 +105,7 @@ void send_byte(int sock, uint8_t byte) {
     ssize_t len = send(sock, &byte, 1, 0);
     if (len != 1) {
         LOG(ERROR) << "Error sending byte:" << errno;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Error sending byte: " + std::to_string(len));
     }
 }
 
@@ -113,7 +113,7 @@ void send_number(int sock, uint64_t num) {
     ssize_t len = send(sock, &num, 64 / 8, 0);
     if (len != 64 / 8) {
         LOG(ERROR) << "Error sending number:" << errno;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Error sending number: " + std::to_string(len));
     }
 }
 
@@ -122,7 +122,7 @@ void send_string(int sock, const std::string &s) {
     ssize_t len = send(sock, s.data(), s.length(), 0);
     if (len != s.length()) {
         LOG(ERROR) << "error sending string:" << errno;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Error sending string: " + std::to_string(len));
     }
 }
 
