@@ -80,13 +80,13 @@ struct LACoordinator {
 
     LACoordinator(uint64_t n, uint64_t f, uint64_t port) : n(n), f(f), server(port) {
         // Wait for all registers
-        std::cout << "Wait for registers" << std::endl;
+       LOG(INFO) << "Wait for registers";
         for (uint64_t i = 0; i < n; ++i) {
             int sock = server.accept_client();
-            std::cout << "New registration" << std::endl;
+            LOG(INFO) << "New registration";
             uint8_t message_type = read_byte(sock);
             if (message_type != Register) {
-                std::cout << "Wrong message" << std::endl;
+                LOG(ERROR) << "Wrong message";
                 assert(false);
             }
             uint64_t protocol_port = read_number(sock);
@@ -98,12 +98,12 @@ struct LACoordinator {
             close(sock);
             known_peers.push_back({ip, i, protocol_port});
             coordinator_clients.push_back({ip, i, coordinator_client_port});
-            std::cout << "ip: " << ip << " id: " << i << " port: " << protocol_port << " coord_client_port: "
-                      << coordinator_client_port << std::endl;
+            LOG(INFO) << "ip: " << ip << " id: " << i << " port: " << protocol_port << " coord_client_port: "
+                      << coordinator_client_port;
         }
 
         // Send test info
-        std::cout << "Sending test info" << std::endl;
+        LOG(INFO) << "Sending test info";
         for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
             send_number(sock, n);
@@ -120,33 +120,33 @@ struct LACoordinator {
         }
 
         // Send start
-        std::cout << "Sending start" << std::endl;
+        LOG(INFO) << "Sending start";
         for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
             close(sock);
         }
 
         // Wait for results
-        std::cout << "Waiting for results" << std::endl;
+        LOG(INFO) << "Waiting for results";
         uint64_t total_time = 0;
         for (uint64_t i = 0; i < n; ++i) {
             int sock = server.accept_client();
             uint8_t message_type = read_byte(sock);
             if (message_type != TestComplete) {
-                std::cout << "Wrong message " << std::endl;
+                LOG(ERROR) << "Wrong message";
                 assert(false);
             }
             uint64_t elapsed_time = read_number(sock);
             total_time += elapsed_time;
             uint64_t id = read_number(sock);
             L value = read_lattice<L>(sock);
-            std::cout << "Result from: " << id << " elapsed time: " << elapsed_time << std::endl;
+            LOG(INFO) << "Result from: " << id << " elapsed time: " << elapsed_time;
             for (auto elem: value.set) {
                 std::cout << elem << ' ';
             }
             std::cout << std::endl;
         }
-        std::cout << "Average time: " << (double) total_time / (double) n << std::endl;
+        LOG(INFO) << "Average time: " << (double) total_time / (double) n;
 
         // Send stop
         for (const auto &peer : coordinator_clients) {

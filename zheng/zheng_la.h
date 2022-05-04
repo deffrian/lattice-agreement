@@ -46,13 +46,13 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         std::unique_lock<std::mutex> lk{cv_m};
 
         protocol.send_value(v, i);
-        std::cout << "Waiting for values" << std::endl;
+        LOG(INFO) << "Waiting for values";
         while (value_received < n - f) cv.wait(lk);
-        std::cout << "All values received " << std::endl;
+        LOG(INFO) << "All values received ";
 
         uint64_t delta = f / 2;
         for (r = 1; r <= log_f; ++r) {
-            std::cout << "classifier iteration: " << r << std::endl;
+            LOG(INFO) << "classifier iteration: " << r;
             Class c = classifier(l, lk);
             delta /= 2;
             if (c == Master) {
@@ -61,7 +61,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
             } else {
                 l = l - delta;
             }
-            std::cout << "classifier iteration done: " << r << std::endl;
+            LOG(INFO) << "classifier iteration done: " << r;
         }
 
         L y;
@@ -83,10 +83,10 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     Class classifier(uint64_t k, std::unique_lock<std::mutex> &lk) {
         w.assign(n, L{});
 
-        std::cout << "Waiting for send ack" << std::endl;
+        LOG(INFO) << "Waiting for send ack";
         protocol.send_write(v, k, r, i);
         while (write_ack_received < n - f) cv.wait(lk);
-        std::cout << "Done waiting for send ack" << std::endl;
+        LOG(INFO) << "Done waiting for send ack";
         write_ack_received = 0;
 
 
@@ -118,8 +118,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     void receive_write_ack(const AcceptValT &recVal, uint64_t rec_r, uint64_t message_id) override {
         if (rec_r == r) {
             std::lock_guard lockGuard{cv_m};
-            std::cout << "<< write ack received" << std::endl;
-//            std::cout << "locked" << std::endl;
+            LOG(INFO) << "<< write ack received";
             write_ack_received++;
             if (build_wp) {
                 for (auto &elem: recVal) {
@@ -137,7 +136,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     void receive_read_ack(const AcceptValT &recVal, uint64_t rec_r, uint64_t message_id) override {
         if (rec_r == r && build_w) {
             std::lock_guard lockGuard{cv_m};
-            std::cout << "<< read ack received" << std::endl;
+            LOG(INFO) << "<< read ack received";
 //            std::cout << "locked" << std::endl;
             for (auto &elem: recVal) {
                 if (elem.second == l) {
@@ -153,7 +152,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
     void receive_value(const std::vector<L> &value, uint64_t message_id) override {
         std::lock_guard lockGuard{cv_m};
-        std::cout << "<< value received" << std::endl;
+        LOG(INFO) << "<< value received";
         value_received++;
         for (size_t k = 0; k < n; ++k) {
             v[k] = L::join(v[k], value[k]);
@@ -163,15 +162,14 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
     void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from, uint64_t message_id) override {
         std::lock_guard lockGuard{cv_m};
-        std::cout << "<< write received from " << from << " message id " << message_id << std::endl;
+        LOG(INFO) << "<< write received from " << from << " message id " << message_id;
         acceptVal[rec_r].emplace_back(value, k);
         protocol.send_write_ack(from, acceptVal[rec_r], rec_r, i, message_id);
     }
 
     void receive_read(uint64_t rec_r, uint64_t from, uint64_t message_id) override {
         std::lock_guard lockGuard{cv_m};
-        std::cout << "<< read received from " << from << std::endl;
-//        std::cout << "locked" << std::endl;
+        LOG(INFO) << "<< read received from " << from;
         protocol.send_read_ack(from, acceptVal[rec_r], rec_r, i, message_id);
     }
 };

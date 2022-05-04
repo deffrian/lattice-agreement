@@ -68,6 +68,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Answer: " << std::endl;
 
+
     for (auto elem: y.set) {
         std::cout << elem << ' ';
     }

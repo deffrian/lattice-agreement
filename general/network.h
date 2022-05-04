@@ -7,6 +7,8 @@
 #include <thread>
 #include <unistd.h>
 
+#include "general/logger.h"
+
 struct ProcessDescriptor {
     std::string ip_address;
     uint64_t id;
@@ -18,7 +20,7 @@ uint8_t read_byte(int client_fd) {
 
     ssize_t len = read(client_fd, &byte, 1);
     if (len != 1) {
-        std::cout << "error reading byte" << std::endl;
+        LOG(ERROR) << "Error reading byte" << errno;
         assert(false);
     }
     return byte;
@@ -31,7 +33,7 @@ uint64_t read_number(int client_fd) {
     while (bytes_read != 64 / 8) {
         ssize_t len = read(client_fd, (char*)(&number) + bytes_read, 64 / 8 - bytes_read);
         if (len <= 0) {
-            std::cout << "error reading number" << std::endl;
+            LOG(ERROR) << "Error reading number" << errno;
             assert(false);
         }
         bytes_read += len;
@@ -47,7 +49,7 @@ std::string read_string(int client_fd) {
     while (bytes_read != s_len) {
         ssize_t len = read(client_fd, s.data() + bytes_read, s_len - bytes_read);
         if (len <= 0) {
-            std::cout << "error reading string" << std::endl;
+            LOG(ERROR) << "Error reading string" << errno;
             assert(false);
         }
         bytes_read += len;
@@ -76,11 +78,11 @@ std::vector<L> read_lattice_vector(int client_fd) {
 }
 
 int open_socket(const ProcessDescriptor &descriptor) {
-    std::cout << "Open connection to " << descriptor.id << " port: " << descriptor.port << " ip: " << descriptor.ip_address << std::endl;
+    LOG(INFO) << "Open connection to " << descriptor.id << " port: " << descriptor.port << " ip: " << descriptor.ip_address;
     int sock = 0;
     struct sockaddr_in serv_addr;
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\n Socket creation error \n");
+        LOG(ERROR) << "Socket creation error" << errno;
         assert(false);
     }
 
@@ -88,12 +90,12 @@ int open_socket(const ProcessDescriptor &descriptor) {
     serv_addr.sin_port = htons(descriptor.port);
 
     if (inet_pton(AF_INET, descriptor.ip_address.data(), &serv_addr.sin_addr) <= 0) {
-        std::cout << "Invalid address" << std::endl;
+        LOG(ERROR) << "Invalid address";
         assert(false);
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
-        std::cout << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno << std::endl;
+        LOG(ERROR) << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno;
         assert(false);
     }
     return sock;
@@ -103,7 +105,7 @@ int open_socket(const ProcessDescriptor &descriptor) {
 void send_byte(int sock, uint8_t byte) {
     ssize_t len = send(sock, &byte, 1, 0);
     if (len != 1) {
-        std::cout << "error sending number: " << errno << std::endl;
+        LOG(ERROR) << "Error sending number:" << errno;
         exit(EXIT_FAILURE);
     }
 }
@@ -111,7 +113,7 @@ void send_byte(int sock, uint8_t byte) {
 void send_number(int sock, uint64_t num) {
     ssize_t len = send(sock, &num, 64 / 8, 0);
     if (len != 64 / 8) {
-        std::cout << "error sending number: " << errno << std::endl;
+        LOG(ERROR) << "Error sending number:" << errno;
         exit(EXIT_FAILURE);
     }
 }
@@ -120,7 +122,7 @@ void send_string(int sock, const std::string &s) {
     send_number(sock, s.length());
     ssize_t len = send(sock, s.data(), s.length(), 0);
     if (len != s.length()) {
-        std::cout << "error sending string: " << errno << std::endl;
+        LOG(ERROR) << "error sending string:" << errno;
         exit(EXIT_FAILURE);
     }
 }
