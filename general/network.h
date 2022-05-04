@@ -165,7 +165,7 @@ struct TcpServer {
         if (bind(server_fd, (struct sockaddr *) &address, sizeof(address)) < 0) {
             assert(false);
         }
-        if (listen(server_fd, 100) < 0) {
+        if (listen(server_fd, 100000) < 0) {
             assert(false);
         }
     }
