@@ -88,7 +88,7 @@ private:
         uint8_t message_type;
         ssize_t len = read(client_fd, &message_type, 1);
         if (len != 1) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         uint64_t from = read_number(client_fd);
         uint64_t message_id_rec = read_number(client_fd);
@@ -115,9 +115,9 @@ private:
             callback->receive_read_ack(recVal, r, message_id_rec);
         } else {
             std::cout << "unknown message" << std::endl;
-            assert(false);
+            exit(EXIT_FAILURE);
         }
-        close(client_fd);
+        exit(EXIT_FAILURE);
     }
 
     void send_recVal(int sock, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal) {

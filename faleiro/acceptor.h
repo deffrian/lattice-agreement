@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include "lattice.h"
 #include "protocol.h"
 #include "network.h"
@@ -46,26 +45,26 @@ struct AcceptorProtocolTcp {
         int addrlen = sizeof(address);
 
         if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
 
         if (setsockopt(server_fd, SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT, &opt,sizeof(opt))) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = INADDR_ANY;
         address.sin_port = htons(port);
 
         if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         if (listen(server_fd, 4) < 0) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         while (true) {
             new_socket = accept(server_fd, (struct sockaddr *) &address,(socklen_t *) &addrlen);
             if (new_socket < 0) {
-                assert(false);
+                exit(EXIT_FAILURE);
             }
             std::cout << "Connection accepted" << std::endl;
             process_client(new_socket, acceptor);

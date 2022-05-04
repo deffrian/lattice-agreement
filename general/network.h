@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <arpa/inet.h>
-#include <cassert>
 #include <vector>
 #include <thread>
 #include <unistd.h>
@@ -21,7 +20,7 @@ uint8_t read_byte(int client_fd) {
     ssize_t len = read(client_fd, &byte, 1);
     if (len != 1) {
         LOG(ERROR) << "Error reading byte" << errno;
-        assert(false);
+        exit(EXIT_FAILURE);
     }
     return byte;
 }
@@ -34,7 +33,7 @@ uint64_t read_number(int client_fd) {
         ssize_t len = read(client_fd, (char*)(&number) + bytes_read, 64 / 8 - bytes_read);
         if (len <= 0) {
             LOG(ERROR) << "Error reading number" << errno;
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         bytes_read += len;
     }
@@ -50,7 +49,7 @@ std::string read_string(int client_fd) {
         ssize_t len = read(client_fd, s.data() + bytes_read, s_len - bytes_read);
         if (len <= 0) {
             LOG(ERROR) << "Error reading string" << errno;
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         bytes_read += len;
     }
@@ -83,7 +82,7 @@ int open_socket(const ProcessDescriptor &descriptor) {
     struct sockaddr_in serv_addr;
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         LOG(ERROR) << "Socket creation error" << errno;
-        assert(false);
+        exit(EXIT_FAILURE);
     }
 
     serv_addr.sin_family = AF_INET;
@@ -91,12 +90,12 @@ int open_socket(const ProcessDescriptor &descriptor) {
 
     if (inet_pton(AF_INET, descriptor.ip_address.data(), &serv_addr.sin_addr) <= 0) {
         LOG(ERROR) << "Invalid address";
-        assert(false);
+        exit(EXIT_FAILURE);
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
         LOG(ERROR) << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno;
-        assert(false);
+        exit(EXIT_FAILURE);
     }
     return sock;
 }
@@ -105,7 +104,7 @@ int open_socket(const ProcessDescriptor &descriptor) {
 void send_byte(int sock, uint8_t byte) {
     ssize_t len = send(sock, &byte, 1, 0);
     if (len != 1) {
-        LOG(ERROR) << "Error sending number:" << errno;
+        LOG(ERROR) << "Error sending byte:" << errno;
         exit(EXIT_FAILURE);
     }
 }
@@ -154,21 +153,21 @@ struct TcpServer {
         addrlen = sizeof(address);
 
         if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
 
         if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = INADDR_ANY;
         address.sin_port = htons(port);
 
         if (bind(server_fd, (struct sockaddr *) &address, sizeof(address)) < 0) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
         if (listen(server_fd, 100000) < 0) {
-            assert(false);
+            exit(EXIT_FAILURE);
         }
     }
 

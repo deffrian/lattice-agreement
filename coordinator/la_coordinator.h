@@ -7,7 +7,10 @@
 
 enum CoordinatorMessage : uint8_t {
     Register = 0,
-    TestComplete = 1
+    TestComplete = 1,
+    Start = 2,
+    Stop = 3,
+    TestInfo = 4
 };
 
 template<typename L>
@@ -35,6 +38,11 @@ struct LACoordinatorClient {
 
     void wait_for_test_info(uint64_t &n, uint64_t &f, L &initial_value, std::vector<ProcessDescriptor> &peers) {
         int sock = server.accept_client();
+        uint8_t message_type = read_byte(sock);
+        if (message_type != TestInfo) {
+            LOG(ERROR) << "Wrong message in wait for test info";
+            exit(EXIT_FAILURE);
+        }
         n = read_number(sock);
         f = read_number(sock);
         initial_value = read_lattice<L>(sock);
@@ -51,11 +59,21 @@ struct LACoordinatorClient {
 
     void wait_for_start() {
         int sock = server.accept_client();
+        uint8_t byte = read_byte(sock);
+        if (byte != Start) {
+            LOG(ERROR) << "Wrong message in wait for start";
+            exit(EXIT_FAILURE);
+        }
         close(sock);
     }
 
     void wait_for_stop() {
         int sock = server.accept_client();
+        uint8_t byte = read_byte(sock);
+        if (byte != Stop) {
+            LOG(ERROR) << "Wrong message in wait for stop";
+            exit(EXIT_FAILURE);
+        }
         close(sock);
     }
 
@@ -87,7 +105,7 @@ struct LACoordinator {
             uint8_t message_type = read_byte(sock);
             if (message_type != Register) {
                 LOG(ERROR) << "Wrong message";
-                assert(false);
+                exit(EXIT_FAILURE);
             }
             uint64_t protocol_port = read_number(sock);
             uint64_t coordinator_client_port = read_number(sock);
@@ -106,6 +124,7 @@ struct LACoordinator {
         LOG(INFO) << "Sending test info";
         for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
+            send_byte(sock, TestInfo);
             send_number(sock, n);
             send_number(sock, f);
             L initial_value;
@@ -123,6 +142,7 @@ struct LACoordinator {
         LOG(INFO) << "Sending start";
         for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
+            send_byte(sock, Start);
             close(sock);
         }
 
@@ -133,8 +153,8 @@ struct LACoordinator {
             int sock = server.accept_client();
             uint8_t message_type = read_byte(sock);
             if (message_type != TestComplete) {
-                LOG(ERROR) << "Wrong message";
-                assert(false);
+                LOG(ERROR) << "Wrong message in wait for results";
+                exit(EXIT_FAILURE);
             }
             uint64_t elapsed_time = read_number(sock);
             total_time += elapsed_time;
@@ -146,11 +166,13 @@ struct LACoordinator {
             }
             std::cout << std::endl;
         }
+        std::cout << std::fixed;
         LOG(INFO) << "Average time: " << (double) total_time / (double) n;
 
         // Send stop
         for (const auto &peer : coordinator_clients) {
             int sock = open_socket(peer);
+            send_byte(sock, Stop);
             close(sock);
         }
     }

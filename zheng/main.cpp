@@ -1,5 +1,4 @@
 #include <fstream>
-#include <cassert>
 
 #include "zheng_la.h"
 #include "coordinator/la_coordinator.h"
@@ -21,7 +20,7 @@ void read_processes_from_config(const std::string &acceptors_config, ProtocolTcp
 int main(int argc, char *argv[]) {
     if (argc != 6) {
         std::cout << "usage: ip port coordinator_port coordinator_ip coordinator_client_port" << std::endl;
-        assert(false);
+        exit(EXIT_FAILURE);
     }
 
     std::string ip = argv[1];
@@ -83,7 +82,7 @@ int main(int argc, char *argv[]) {
 int main2(int argc, char *argv[]) {
     if (argc != 7) {
         std::cout << "usage: n f port id elem config" << std::endl;
-        assert(false);
+        exit(EXIT_FAILURE);
     }
     uint64_t n = std::stoi(argv[1]);
     uint64_t f = std::stoi(argv[2]);
