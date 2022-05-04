@@ -21,6 +21,8 @@ struct LACoordinatorClient {
 
     uint64_t my_id = -1;
 
+    int sock_from_coordinator = -1;
+
     LACoordinatorClient(uint64_t port, ProcessDescriptor coordinator_descriptor) : server(port),
                                                                                    coordinator_descriptor(std::move(
                                                                                            coordinator_descriptor)) {}
@@ -37,45 +39,42 @@ struct LACoordinatorClient {
     }
 
     void wait_for_test_info(uint64_t &n, uint64_t &f, L &initial_value, std::vector<ProcessDescriptor> &peers) {
-        int sock = server.accept_client();
-        uint8_t message_type = read_byte(sock);
+        sock_from_coordinator = server.accept_client();
+        uint8_t message_type = read_byte(sock_from_coordinator);
         if (message_type != TestInfo) {
             LOG(ERROR) << "Wrong message in wait for test info";
             exit(EXIT_FAILURE);
         }
-        n = read_number(sock);
-        f = read_number(sock);
-        initial_value = read_lattice<L>(sock);
+        n = read_number(sock_from_coordinator);
+        f = read_number(sock_from_coordinator);
+        initial_value = read_lattice<L>(sock_from_coordinator);
         for (uint64_t i = 0; i < n; ++i) {
-            uint64_t port = read_number(sock);
-            std::string ip = read_string(sock);
-            uint64_t id = read_number(sock);
+            uint64_t port = read_number(sock_from_coordinator);
+            std::string ip = read_string(sock_from_coordinator);
+            uint64_t id = read_number(sock_from_coordinator);
             if (id != my_id) {
                 peers.push_back({ip, id, port});
             }
         }
-        send_number(sock, 11);
-        close(sock);
+        send_number(sock_from_coordinator, 11);
+//        close(sock);
     }
 
     void wait_for_start() {
-        int sock = server.accept_client();
-        uint8_t byte = read_byte(sock);
+        uint8_t byte = read_byte(sock_from_coordinator);
         if (byte != Start) {
             LOG(ERROR) << "Wrong message in wait for start";
             exit(EXIT_FAILURE);
         }
-        close(sock);
     }
 
     void wait_for_stop() {
-        int sock = server.accept_client();
-        uint8_t byte = read_byte(sock);
+        uint8_t byte = read_byte(sock_from_coordinator);
         if (byte != Stop) {
             LOG(ERROR) << "Wrong message in wait for stop";
             exit(EXIT_FAILURE);
         }
-        close(sock);
+        close(sock_from_coordinator);
     }
 
     void send_test_complete(uint64_t elapsed_time, const L &received_value) {
@@ -96,7 +95,7 @@ struct LACoordinator {
     TcpServer server;
 
     std::vector<ProcessDescriptor> known_peers;
-    std::vector<ProcessDescriptor> coordinator_clients;
+    std::vector<std::pair<ProcessDescriptor, int>> coordinator_clients;
 
     LACoordinator(uint64_t n, uint64_t f, uint64_t port) : n(n), f(f), server(port) {
         // Wait for all registers
@@ -117,20 +116,21 @@ struct LACoordinator {
             send_number(sock, i);
             close(sock);
             known_peers.push_back({ip, i, protocol_port});
-            coordinator_clients.push_back({ip, i, coordinator_client_port});
+            coordinator_clients.push_back({{ip, i, coordinator_client_port}, -1});
             LOG(INFO) << "ip: " << ip << " id: " << i << " port: " << protocol_port << " coord_client_port: "
                       << coordinator_client_port;
         }
 
         // Send test info
         LOG(INFO) << "Sending test info";
-        for (const auto &peer : coordinator_clients) {
-            int sock = open_socket(peer);
+        for (auto &peer : coordinator_clients) {
+            peer.second = open_socket(peer.first);
+            int sock = peer.second;
             send_byte(sock, TestInfo);
             send_number(sock, n);
             send_number(sock, f);
             L initial_value;
-            initial_value.insert(peer.id);
+            initial_value.insert(peer.first.id);
             send_lattice(sock, initial_value);
             for (const auto &elem : known_peers) {
                 send_number(sock, elem.port);
@@ -145,7 +145,7 @@ struct LACoordinator {
         // Send start
         LOG(INFO) << "Sending start";
         for (const auto &peer : coordinator_clients) {
-            int sock = open_socket(peer);
+            int sock = peer.second;
             send_byte(sock, Start);
             close(sock);
         }
@@ -175,7 +175,7 @@ struct LACoordinator {
 
         // Send stop
         for (const auto &peer : coordinator_clients) {
-            int sock = open_socket(peer);
+            int sock = peer.second;
             send_byte(sock, Stop);
             close(sock);
         }
