@@ -85,7 +85,17 @@ private:
     static void process_client(std::pair<int, Callback<L> *> &value) {
         auto callback = value.second;
         auto client_fd = value.first;
-        uint8_t message_type = read_byte(client_fd);
+        uint8_t message_type;
+        ssize_t len = read(client_fd, &message_type, 1);
+        if (len == 0) {
+            LOG(ERROR) << "Connection closed";
+            close(client_fd);
+            return;
+        }
+        if (len < 0) {
+            LOG(ERROR) << "Can't read message type" << errno;
+            exit(EXIT_FAILURE);
+        }
         uint64_t from = read_number(client_fd);
         uint64_t message_id_rec = read_number(client_fd);
         std::cout << "New connection from " << from << " message_id: " << message_id_rec << " type: "

@@ -117,7 +117,6 @@ struct ProposerProtocolTcp {
     std::variant<Ack<L>, Nack<L>> get_reply(const ProposerRequest<L> &proposal, const ProcessDescriptor &descriptor) {
         int sock = open_socket(descriptor);
         std::cout << "Sending request" << std::endl;
-//        send_number(sock, proposal.proposal_number);
         send_number(sock, proposal.proposal_number);
         send_number(sock, proposal.proposer_id);
         send_lattice(sock, proposal.proposed_value);
