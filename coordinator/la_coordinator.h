@@ -74,7 +74,6 @@ struct LACoordinatorClient {
             LOG(ERROR) << "Wrong message in wait for stop";
             exit(EXIT_FAILURE);
         }
-        close(sock_from_coordinator);
     }
 
     void send_test_complete(uint64_t elapsed_time, const L &received_value) {
@@ -139,7 +138,6 @@ struct LACoordinator {
             }
             uint64_t ok = read_number(sock);
             LOG(INFO) << ok;
-            close(sock);
         }
 
         // Send start
@@ -147,7 +145,6 @@ struct LACoordinator {
         for (const auto &peer : coordinator_clients) {
             int sock = peer.second;
             send_byte(sock, Start);
-            close(sock);
         }
 
         // Wait for results
