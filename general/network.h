@@ -143,12 +143,16 @@ void send_lattice_vector(int sock, const std::vector<L> &v) {
 }
 
 struct TcpServer {
+    const size_t MAX_CONNECTIONS = 1024;
+
     int server_fd;
+
+    std::vector<int> all_connections;
 
     struct sockaddr_in address;
     int addrlen;
 
-    TcpServer(uint64_t port) {
+    TcpServer(uint64_t port) : all_connections(MAX_CONNECTIONS, -1) {
         int opt = 1;
         addrlen = sizeof(address);
 
@@ -169,11 +173,58 @@ struct TcpServer {
         if (listen(server_fd, 100000) < 0) {
             exit(EXIT_FAILURE);
         }
+        all_connections[0] = server_fd;
     }
 
     int accept_client() {
         struct sockaddr_in client_addr;
         return accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
+    }
+
+    int select_client() {
+        fd_set read_fd_set;
+        FD_ZERO(&read_fd_set);
+
+        for (size_t i = 0; i < MAX_CONNECTIONS; ++i) {
+            if (all_connections[i] >= 0) {
+                FD_SET(all_connections[i], &read_fd_set);
+            }
+        }
+
+
+        int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, nullptr);
+        if (select_val < 0) {
+            LOG(ERROR) << "Select error";
+            exit(EXIT_FAILURE);
+        }
+        if (FD_ISSET(server_fd, &read_fd_set)) {
+            /* accept the new connection */
+            printf("Returned fd is %d (server's fd)\n", server_fd);
+            struct sockaddr_in client_addr;
+            int client_fd = accept_client();
+            if (client_fd < 0) {
+                LOG(ERROR) << "Error accepting connection";
+                exit(EXIT_FAILURE);
+            }
+            LOG(INFO) << "Connection accepted";
+            for (int i = 0; i < MAX_CONNECTIONS; i++) {
+                if (all_connections[i] < 0) {
+                    all_connections[i] = client_fd;
+                    break;
+                }
+            }
+            return client_fd;
+        }
+
+        for (size_t i = 1; i < MAX_CONNECTIONS; i++) {
+            if ((all_connections[i] > 0) &&
+                (FD_ISSET(all_connections[i], &read_fd_set))) {
+
+                return all_connections[i];
+            }
+        }
+        LOG(ERROR) << "Wrong select";
+        exit(EXIT_FAILURE);
     }
 
     int accept_client(std::string &client_ip) {

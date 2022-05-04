@@ -55,7 +55,7 @@ struct ProtocolTcp {
         std::thread(
                 [&, callback]() {
                     while (!should_stop) {
-                        int new_socket = server.accept_client();
+                        int new_socket = server.select_client();
                         if (new_socket < 0) {
                             std::cout << "Server thread failed" << std::endl;
                             return;
@@ -85,11 +85,7 @@ private:
     static void process_client(std::pair<int, Callback<L> *> &value) {
         auto callback = value.second;
         auto client_fd = value.first;
-        uint8_t message_type;
-        ssize_t len = read(client_fd, &message_type, 1);
-        if (len != 1) {
-            exit(EXIT_FAILURE);
-        }
+        uint8_t message_type = read_byte(client_fd);
         uint64_t from = read_number(client_fd);
         uint64_t message_id_rec = read_number(client_fd);
         std::cout << "New connection from " << from << " message_id: " << message_id_rec << " type: "
@@ -128,6 +124,15 @@ private:
         }
     }
 
+    std::map<uint64_t, int> known_sockets;
+
+    int get_socket(const ProcessDescriptor &descriptor) {
+        if (known_sockets.count(descriptor.id) == 0) {
+            known_sockets[descriptor.id] = open_socket(descriptor);
+        }
+        return known_sockets[descriptor.id];
+    }
+
 public:
     void send_write(const std::vector<L> &v, uint64_t k, uint64_t r, uint64_t from) {
         std::thread([&, v, k, r, from]() {
@@ -136,7 +141,7 @@ public:
                 uint64_t cur_message_id = message_id++;
                 std::cout << ">> sending write to " << descriptor.second.id << " from " << from << " message id "
                           << cur_message_id << std::endl;
-                int sock = open_socket(descriptor.second);
+                int sock = get_socket(descriptor.second);
 
                 send(sock, &message_type, 1, 0);
                 send_number(sock, from);
@@ -144,7 +149,6 @@ public:
                 send_lattice_vector(sock, v);
                 send_number(sock, k);
                 send_number(sock, r);
-                close(sock);
             }
         }).detach();
     }
@@ -154,13 +158,12 @@ public:
             uint8_t message_type = Read;
             for (const auto &descriptor: processes) {
                 std::cout << ">> sending read to " << descriptor.second.id << std::endl;
-                int sock = open_socket(descriptor.second);
+                int sock = get_socket(descriptor.second);
 
                 send(sock, &message_type, 1, 0);
                 send_number(sock, from);
                 send_number(sock, message_id++);
                 send_number(sock, r);
-                close(sock);
             }
         }).detach();
     }
@@ -169,28 +172,26 @@ public:
         uint8_t message_type = WriteAck;
 
         std::cout << ">> sending write ack to " << to << std::endl;
-        int sock = open_socket(processes.at(to));
+        int sock = get_socket(processes.at(to));
 
         send(sock, &message_type, 1, 0);
         send_number(sock, from);
         send_number(sock, cur_message_id);
         send_recVal(sock, recVal);
         send_number(sock, rec_r);
-        close(sock);
     }
 
     void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from, uint64_t cur_message_id) {
         uint8_t message_type = ReadAck;
 
         std::cout << ">> sending read ack to " << to << std::endl;
-        int sock = open_socket(processes.at(to));
+        int sock = get_socket(processes.at(to));
 
         send(sock, &message_type, 1, 0);
         send_number(sock,from);
         send_number(sock, cur_message_id);
         send_recVal(sock, recVal);
         send_number(sock,r);
-        close(sock);
     }
 
     void send_value(const std::vector<L> &v, uint64_t from) {
@@ -198,7 +199,7 @@ public:
             uint8_t message_type = Value;
             for (const auto &descriptor: processes) {
                 std::cout << ">> sending value to " << descriptor.second.id << std::endl;
-                int sock = open_socket(descriptor.second);
+                int sock = get_socket(descriptor.second);
 
                 send(sock, &message_type, 1, 0);
                 send_number(sock, from);
@@ -207,7 +208,6 @@ public:
                 for (size_t i = 0; i < v.size(); ++i) {
                     send_lattice(sock, v[i]);
                 }
-                close(sock);
             }
         }).detach();
     }
