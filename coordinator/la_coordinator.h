@@ -83,6 +83,7 @@ struct LACoordinatorClient {
         send_number(sock, elapsed_time);
         send_number(sock, my_id);
         send_lattice(sock, received_value);
+        close(sock);
     }
 };
 
