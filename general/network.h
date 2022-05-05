@@ -83,7 +83,7 @@ int open_socket(const ProcessDescriptor &descriptor) {
     struct sockaddr_in serv_addr;
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         LOG(ERROR) << "Socket creation error" << errno;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Socket creation error");
     }
 
     serv_addr.sin_family = AF_INET;
@@ -91,12 +91,12 @@ int open_socket(const ProcessDescriptor &descriptor) {
 
     if (inet_pton(AF_INET, descriptor.ip_address.data(), &serv_addr.sin_addr) <= 0) {
         LOG(ERROR) << "Invalid address";
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Invalid address");
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
         LOG(ERROR) << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("Connection failed");
     }
     return sock;
 }
@@ -158,21 +158,21 @@ struct TcpServer {
         addrlen = sizeof(address);
 
         if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Server creation failed");
         }
 
         if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Server creation failed");
         }
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = INADDR_ANY;
         address.sin_port = htons(port);
 
         if (bind(server_fd, (struct sockaddr *) &address, sizeof(address)) < 0) {
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Server creation failed");
         }
         if (listen(server_fd, 1000) < 0) {
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Server creation failed");
         }
 //        all_connections[0] = server_fd;
     }
@@ -182,7 +182,7 @@ struct TcpServer {
         int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
         if (client_fd <= 0) {
             LOG(ERROR) << "Cant accept client" << errno;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Cant accept client");
         }
         all_connections.push_back(client_fd);
         return client_fd;
@@ -210,7 +210,7 @@ struct TcpServer {
 
                 if (select_val < 0) {
                     LOG(ERROR) << "Select error" << select_val;
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Select error");
                 }
 
                 std::vector<int> ans;

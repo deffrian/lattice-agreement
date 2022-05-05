@@ -43,7 +43,7 @@ struct LACoordinatorClient {
         uint8_t message_type = read_byte(sock_from_coordinator);
         if (message_type != TestInfo) {
             LOG(ERROR) << "Wrong message in wait for test info";
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Wrong message in wait for test info");
         }
         n = read_number(sock_from_coordinator);
         f = read_number(sock_from_coordinator);
@@ -64,7 +64,7 @@ struct LACoordinatorClient {
         uint8_t byte = read_byte(sock_from_coordinator);
         if (byte != Start) {
             LOG(ERROR) << "Wrong message in wait for start";
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Wrong message in wait for start");
         }
     }
 
@@ -72,7 +72,7 @@ struct LACoordinatorClient {
         uint8_t byte = read_byte(sock_from_coordinator);
         if (byte != Stop) {
             LOG(ERROR) << "Wrong message in wait for stop";
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Wrong message in wait for stop");
         }
     }
 
@@ -105,7 +105,7 @@ struct LACoordinator {
             uint8_t message_type = read_byte(sock);
             if (message_type != Register) {
                 LOG(ERROR) << "Wrong message";
-                exit(EXIT_FAILURE);
+                throw std::runtime_error("Wrong message");
             }
             uint64_t protocol_port = read_number(sock);
             uint64_t coordinator_client_port = read_number(sock);
@@ -155,7 +155,7 @@ struct LACoordinator {
             uint8_t message_type = read_byte(sock);
             if (message_type != TestComplete) {
                 LOG(ERROR) << "Wrong message in wait for results";
-                exit(EXIT_FAILURE);
+                throw std::runtime_error("Wrong message in wait for results");
             }
             uint64_t elapsed_time = read_number(sock);
             total_time += elapsed_time;

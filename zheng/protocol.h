@@ -116,7 +116,7 @@ private:
         }
         if (len != 1) {
             LOG(ERROR) << "Can't read message type" << errno;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Can't read message type");
         }
         uint64_t from = read_number(client_fd);
         uint64_t message_id_rec = read_number(client_fd);
@@ -143,7 +143,7 @@ private:
             callback->receive_read_ack(recVal, r, message_id_rec);
         } else {
             LOG(ERROR) << "unknown message";
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("unknown message");
         }
         server.close_socket(client_fd);
     }

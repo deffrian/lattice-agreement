@@ -5,7 +5,7 @@
 int main(int argc, char *argv[]) {
     if (argc != 4) {
         std::cout << "usage n f port" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("usage");
     }
     uint64_t n = std::stoi(argv[1]);
     uint64_t f = std::stoi(argv[2]);

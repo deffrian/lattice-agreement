@@ -10,7 +10,7 @@ struct ZhengLAGenerator {
 
     L propose_to(uint64_t idx, const L &prop) {
         if (terminated.contains(idx)) {
-            exit(EXIT_FAILURE);
+            throw std::runtime_error();
         }
 
         return active[idx]->start(prop);

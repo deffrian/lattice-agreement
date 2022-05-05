@@ -5,15 +5,13 @@ struct TcpClient {
 
     int sock;
 
-    TcpClient(const TcpClient &other) = default;
-
     explicit TcpClient(const ProcessDescriptor &descriptor) {
-        LOG(INFO) << "Open connection to " << descriptor.id << " port: " << descriptor.port << " ip: " << descriptor.ip_address;
+        LOG(INFO) << "Open connection to" << descriptor.id << "port:" << descriptor.port << "ip:" << descriptor.ip_address;
         sock = 0;
         struct sockaddr_in serv_addr;
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             LOG(ERROR) << "Socket creation error" << errno;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Socket creation error");
         }
 
         serv_addr.sin_family = AF_INET;
@@ -21,12 +19,12 @@ struct TcpClient {
 
         if (inet_pton(AF_INET, descriptor.ip_address.data(), &serv_addr.sin_addr) <= 0) {
             LOG(ERROR) << "Invalid address";
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Invalid address");
         }
 
         if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
-            LOG(ERROR) << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno;
-            exit(EXIT_FAILURE);
+            LOG(ERROR) << "Client connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno;
+            throw std::runtime_error("Client connection failed " + descriptor.ip_address + " " + std::to_string(descriptor.port));
         }
     }
 

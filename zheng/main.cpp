@@ -20,7 +20,7 @@ void read_processes_from_config(const std::string &acceptors_config, ProtocolTcp
 int main(int argc, char *argv[]) {
     if (argc != 6) {
         std::cout << "usage: ip port coordinator_port coordinator_ip coordinator_client_port" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("usage");
     }
 
     std::string ip = argv[1];
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 int main2(int argc, char *argv[]) {
     if (argc != 7) {
         std::cout << "usage: n f port id elem config" << std::endl;
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("usage");
     }
     uint64_t n = std::stoi(argv[1]);
     uint64_t f = std::stoi(argv[2]);
