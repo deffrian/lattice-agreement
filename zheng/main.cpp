@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     coordinator_client.wait_for_start();
 
     LOG(INFO) << "Run la";
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(10));
 
     protocol.open_sockets();
     // Run la
@@ -66,6 +66,8 @@ int main(int argc, char *argv[]) {
     auto y = la.start(initial_value);
     auto end = std::chrono::steady_clock::now();
     uint64_t elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+
+    LOG(ERROR) << "DONE" << id;
 
     std::cout << "Answer: " << std::endl;
 
