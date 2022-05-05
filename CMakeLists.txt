@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(lattice_agreement main.cpp)
 
+include_directories(.)
+
 add_subdirectory(faleiro)
 add_subdirectory(zheng)
 add_subdirectory(generalizer)

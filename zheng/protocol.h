@@ -8,6 +8,7 @@
 
 #include "general/network.h"
 #include "general/thread_pool.h"
+#include "general/tcp_client.h"
 
 enum MessageType : uint8_t {
     Write = 0,
@@ -35,34 +36,54 @@ struct Callback {
 template<typename L>
 struct ProtocolTcp {
 
+    std::unordered_map<uint64_t, TcpClient> known_sockets;
+
     std::atomic<bool> should_stop = false;
     std::atomic<uint64_t> message_id;
 
-    std::map<uint64_t, ProcessDescriptor> processes;
+    std::unordered_map<uint64_t, ProcessDescriptor> processes;
 
-    ThreadPool<std::pair<int, Callback<L>*>> clients_processors;
+    ThreadPool<std::pair<int, Callback<L> *>> clients_processors;
 
     TcpServer server;
 
-    explicit ProtocolTcp(uint64_t port, uint64_t id) : server(port), message_id(id * 100), clients_processors(process_client, 3) {}
+    explicit ProtocolTcp(uint64_t port, uint64_t id) : server(port), message_id(id * 1000),
+                                                       clients_processors([&](std::pair<int, Callback<L> *> &value) {
+                                                           this->process_client(value);
+                                                       }, 3) {}
 
     void add_process(const ProcessDescriptor &descriptor) {
         processes[descriptor.id] = descriptor;
     }
 
     void start(Callback<L> *callback) {
-        std::cout << "starting server thread processes cnt: " << processes.size() << std::endl;
+        LOG(INFO) << "starting server thread processes cnt: " << processes.size();
         std::thread(
                 [&, callback]() {
-                    while (!should_stop) {
-                        int new_socket = server.select_client();
+                    LOG(INFO) << "Waiting for connections";
+                    for (const auto &peer: processes) {
+                        int new_socket = server.accept_client();
                         if (new_socket < 0) {
-                            std::cout << "Server thread failed" << std::endl;
-                            return;
+                            LOG(ERROR) << "Error while accepting client";
+                            throw std::runtime_error("Select client failed");
                         }
-                        clients_processors.add_job({new_socket, callback});
+                    }
+                    while (!should_stop) {
+                        std::vector<int> active_sockets = server.select_clients();
+
+                        for (int socket: active_sockets) {
+                            clients_processors.add_job({socket, callback});
+                        }
                     }
                 }).detach();
+    }
+
+    void open_sockets() {
+        LOG(INFO) << "Establish connections to peers";
+        for (const auto &peer : processes) {
+            known_sockets.emplace(peer.first, peer.second);
+        }
+        LOG(INFO) << "All peers connected";
     }
 
     void stop() {
@@ -82,7 +103,8 @@ private:
         return recVal;
     }
 
-    static void process_client(std::pair<int, Callback<L> *> &value) {
+
+    void process_client(std::pair<int, Callback<L> *> &value) {
         auto callback = value.second;
         auto client_fd = value.first;
         uint8_t message_type;
@@ -92,14 +114,14 @@ private:
             close(client_fd);
             return;
         }
-        if (len < 0) {
+        if (len != 1) {
             LOG(ERROR) << "Can't read message type" << errno;
             exit(EXIT_FAILURE);
         }
         uint64_t from = read_number(client_fd);
         uint64_t message_id_rec = read_number(client_fd);
-        std::cout << "New connection from " << from << " message_id: " << message_id_rec << " type: "
-                  << (int) message_type << std::endl;
+        LOG(INFO) << "New connection from" << from << "message_id:" << message_id_rec << "type:"
+                  << (int) message_type;
         if (message_type == Value) {
             auto lv = read_lattice_vector<L>(client_fd);
             callback->receive_value(lv, message_id_rec);
@@ -120,27 +142,21 @@ private:
             uint64_t r = read_number(client_fd);
             callback->receive_read_ack(recVal, r, message_id_rec);
         } else {
-            std::cout << "unknown message" << std::endl;
+            LOG(ERROR) << "unknown message";
             exit(EXIT_FAILURE);
         }
-        exit(EXIT_FAILURE);
+        server.close_socket(client_fd);
     }
 
-    void send_recVal(int sock, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal) {
-        send_number(sock, recVal.size());
-        for (auto elem: recVal) {
-            send_lattice_vector(sock, elem.first);
-            send_number(sock, elem.second);
-        }
+    std::mutex sock_mt;
+
+    TcpClient &get_socket(const ProcessDescriptor &descriptor) {
+        sock_mt.lock();
+        return known_sockets.at(descriptor.id);
     }
 
-    std::map<uint64_t, int> known_sockets;
-
-    int get_socket(const ProcessDescriptor &descriptor) {
-        if (known_sockets.count(descriptor.id) == 0) {
-            known_sockets[descriptor.id] = open_socket(descriptor);
-        }
-        return known_sockets[descriptor.id];
+    void free_socket(const ProcessDescriptor &descriptor) {
+        sock_mt.unlock();
     }
 
 public:
@@ -149,16 +165,17 @@ public:
             uint8_t message_type = Write;
             for (const auto &descriptor: processes) {
                 uint64_t cur_message_id = message_id++;
-                std::cout << ">> sending write to " << descriptor.second.id << " from " << from << " message id "
-                          << cur_message_id << std::endl;
-                int sock = get_socket(descriptor.second);
+                LOG(INFO) << ">> sending write to" << descriptor.second.id << "from" << from << "message id"
+                          << cur_message_id;
+                auto client = get_socket(descriptor.second);
 
-                send(sock, &message_type, 1, 0);
-                send_number(sock, from);
-                send_number(sock, cur_message_id);
-                send_lattice_vector(sock, v);
-                send_number(sock, k);
-                send_number(sock, r);
+                client.send_byte(message_type);
+                client.send_number(from);
+                client.send_number(cur_message_id);
+                client.send_lattice_vector(v);
+                client.send_number(k);
+                client.send_number(r);
+                free_socket(descriptor.second);
             }
         }).detach();
     }
@@ -167,13 +184,15 @@ public:
         std::thread([&, r, from]() {
             uint8_t message_type = Read;
             for (const auto &descriptor: processes) {
-                std::cout << ">> sending read to " << descriptor.second.id << std::endl;
-                int sock = get_socket(descriptor.second);
+                uint64_t cur_message_id = message_id++;
+                LOG(INFO) << ">> sending read to" << descriptor.second.id << "cur message id:" <<cur_message_id;
+                auto client = get_socket(descriptor.second);
 
-                send(sock, &message_type, 1, 0);
-                send_number(sock, from);
-                send_number(sock, message_id++);
-                send_number(sock, r);
+                client.send_byte(message_type);
+                client.send_number(from);
+                client.send_number(cur_message_id);
+                client.send_number(r);
+                free_socket(descriptor.second);
             }
         }).detach();
     }
@@ -181,43 +200,44 @@ public:
     void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t from, uint64_t cur_message_id) {
         uint8_t message_type = WriteAck;
 
-        std::cout << ">> sending write ack to " << to << std::endl;
-        int sock = get_socket(processes.at(to));
+        LOG(INFO) << ">> sending write ack to " << to << "cur message id:" << cur_message_id;
+        auto client = get_socket(processes.at(to));
 
-        send(sock, &message_type, 1, 0);
-        send_number(sock, from);
-        send_number(sock, cur_message_id);
-        send_recVal(sock, recVal);
-        send_number(sock, rec_r);
+        client.send_byte(message_type);
+        client.send_number(from);
+        client.send_number(cur_message_id);
+        client.send_recVal(recVal);
+        client.send_number(rec_r);
+        free_socket(processes.at(to));
     }
 
     void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from, uint64_t cur_message_id) {
         uint8_t message_type = ReadAck;
 
-        std::cout << ">> sending read ack to " << to << std::endl;
-        int sock = get_socket(processes.at(to));
+        LOG(INFO) << ">> sending read ack to" << to << "cur message id:" << cur_message_id;
+        auto client = get_socket(processes.at(to));
 
-        send(sock, &message_type, 1, 0);
-        send_number(sock,from);
-        send_number(sock, cur_message_id);
-        send_recVal(sock, recVal);
-        send_number(sock,r);
+        client.send_byte(message_type);
+        client.send_number(from);
+        client.send_number(cur_message_id);
+        client.send_recVal(recVal);
+        client.send_number(r);
+        free_socket(processes.at(to));
     }
 
     void send_value(const std::vector<L> &v, uint64_t from) {
         std::thread([&, v, from]() {
             uint8_t message_type = Value;
             for (const auto &descriptor: processes) {
-                std::cout << ">> sending value to " << descriptor.second.id << std::endl;
-                int sock = get_socket(descriptor.second);
+                uint64_t cur_message_id = message_id++;
+                LOG(INFO) << ">> sending value to " << descriptor.second.id << cur_message_id;
+                auto client = get_socket(descriptor.second);
 
-                send(sock, &message_type, 1, 0);
-                send_number(sock, from);
-                send_number(sock, message_id++);
-                send_number(sock, v.size());
-                for (size_t i = 0; i < v.size(); ++i) {
-                    send_lattice(sock, v[i]);
-                }
+                client.send_byte(message_type);
+                client.send_number(from);
+                client.send_number(cur_message_id);
+                client.send_lattice_vector(v);
+                free_socket(descriptor.second);
             }
         }).detach();
     }

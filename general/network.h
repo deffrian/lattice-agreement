@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <unistd.h>
+#include <unordered_set>
 
 #include "general/logger.h"
 
@@ -143,16 +144,16 @@ void send_lattice_vector(int sock, const std::vector<L> &v) {
 }
 
 struct TcpServer {
-    const size_t MAX_CONNECTIONS = 1024;
-
     int server_fd;
 
+    std::mutex connections_mt;
+    std::unordered_set<int> used_fds;
     std::vector<int> all_connections;
 
     struct sockaddr_in address;
     int addrlen;
 
-    TcpServer(uint64_t port) : all_connections(MAX_CONNECTIONS, -1) {
+    explicit TcpServer(uint64_t port) {
         int opt = 1;
         addrlen = sizeof(address);
 
@@ -170,61 +171,68 @@ struct TcpServer {
         if (bind(server_fd, (struct sockaddr *) &address, sizeof(address)) < 0) {
             exit(EXIT_FAILURE);
         }
-        if (listen(server_fd, 100000) < 0) {
+        if (listen(server_fd, 1000) < 0) {
             exit(EXIT_FAILURE);
         }
-        all_connections[0] = server_fd;
+//        all_connections[0] = server_fd;
     }
 
     int accept_client() {
         struct sockaddr_in client_addr;
-        return accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
-    }
-
-    int select_client() {
-        fd_set read_fd_set;
-        FD_ZERO(&read_fd_set);
-
-        for (size_t i = 0; i < MAX_CONNECTIONS; ++i) {
-            if (all_connections[i] >= 0) {
-                FD_SET(all_connections[i], &read_fd_set);
-            }
-        }
-
-
-        int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, nullptr);
-        if (select_val < 0) {
-            LOG(ERROR) << "Select error";
+        int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
+        if (client_fd <= 0) {
+            LOG(ERROR) << "Cant accept client" << errno;
             exit(EXIT_FAILURE);
         }
-        if (FD_ISSET(server_fd, &read_fd_set)) {
-            /* accept the new connection */
-            printf("Returned fd is %d (server's fd)\n", server_fd);
-            struct sockaddr_in client_addr;
-            int client_fd = accept_client();
-            if (client_fd < 0) {
-                LOG(ERROR) << "Error accepting connection";
-                exit(EXIT_FAILURE);
-            }
-            LOG(INFO) << "Connection accepted";
-            for (int i = 0; i < MAX_CONNECTIONS; i++) {
-                if (all_connections[i] < 0) {
-                    all_connections[i] = client_fd;
-                    break;
+        all_connections.push_back(client_fd);
+        return client_fd;
+    }
+
+    std::vector<int> select_clients() {
+        while (true) {
+            fd_set read_fd_set;
+            FD_ZERO(&read_fd_set);
+            {
+//                std::lock_guard<std::mutex> lg{connections_mt};
+
+//                LOG tmp(INFO);
+//                tmp << "Used connections" << all_connections.size() << used_fds.size();
+                for (size_t i = 0; i < all_connections.size(); ++i) {
+//                    if (used_fds.count(all_connections[i]) == 0) {
+                        FD_SET(all_connections[i], &read_fd_set);
+
                 }
             }
-            return client_fd;
-        }
+//        LOG(INFO) << "SELECTING";
+            int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, nullptr);
+            {
+                std::lock_guard<std::mutex> lg{connections_mt};
 
-        for (size_t i = 1; i < MAX_CONNECTIONS; i++) {
-            if ((all_connections[i] > 0) &&
-                (FD_ISSET(all_connections[i], &read_fd_set))) {
+                if (select_val < 0) {
+                    LOG(ERROR) << "Select error" << select_val;
+                    exit(EXIT_FAILURE);
+                }
 
-                return all_connections[i];
+                std::vector<int> ans;
+                for (size_t i = 0; i < all_connections.size(); i++) {
+                    if ((FD_ISSET(all_connections[i], &read_fd_set)) && used_fds.count(all_connections[i]) == 0) {
+//                        LOG(INFO) << "Opened" << all_connections[i];
+                        used_fds.insert(all_connections[i]);
+                        ans.push_back(all_connections[i]);
+                    }
+                }
+                if (!ans.empty()) {
+                    return ans;
+                }
             }
         }
-        LOG(ERROR) << "Wrong select";
-        exit(EXIT_FAILURE);
+    }
+
+    void close_socket(int client_fd) {
+//        LOG(INFO) << "Trying to close" << client_fd;
+        std::lock_guard<std::mutex> lg{connections_mt};
+//        LOG(INFO) << "Closed" << client_fd;
+        used_fds.erase(client_fd);
     }
 
     int accept_client(std::string &client_ip) {
