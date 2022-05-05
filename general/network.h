@@ -143,6 +143,15 @@ void send_lattice_vector(int sock, const std::vector<L> &v) {
     }
 }
 
+template<typename L>
+void send_recVal(int sock, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal) {
+    send_number(sock, recVal.size());
+    for (auto elem: recVal) {
+        send_lattice_vector(sock, elem.first);
+        send_number(sock, elem.second);
+    }
+}
+
 struct TcpServer {
     int server_fd;
 
@@ -193,19 +202,23 @@ struct TcpServer {
             fd_set read_fd_set;
             FD_ZERO(&read_fd_set);
             {
-//                std::lock_guard<std::mutex> lg{connections_mt};
+                std::lock_guard<std::mutex> lg{connections_mt};
 
 //                LOG tmp(INFO);
 //                tmp << "Used connections" << all_connections.size() << used_fds.size();
                 for (size_t i = 0; i < all_connections.size(); ++i) {
-//                    if (used_fds.count(all_connections[i]) == 0) {
+                    if (used_fds.count(all_connections[i]) == 0) {
                         FD_SET(all_connections[i], &read_fd_set);
-
+                    }
                 }
             }
+            struct timeval timeout;
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 50000;
 //        LOG(INFO) << "SELECTING";
-            int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, nullptr);
-            {
+            int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, &timeout);
+
+            if (select_val != 0) {
                 std::lock_guard<std::mutex> lg{connections_mt};
 
                 if (select_val < 0) {

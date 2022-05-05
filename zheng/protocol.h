@@ -8,7 +8,6 @@
 
 #include "general/network.h"
 #include "general/thread_pool.h"
-#include "general/tcp_client.h"
 
 enum MessageType : uint8_t {
     Write = 0,
@@ -36,7 +35,7 @@ struct Callback {
 template<typename L>
 struct ProtocolTcp {
 
-    std::unordered_map<uint64_t, TcpClient> known_sockets;
+    std::unordered_map<uint64_t, int> known_sockets;
 
     std::atomic<bool> should_stop = false;
     std::atomic<uint64_t> message_id;
@@ -81,7 +80,7 @@ struct ProtocolTcp {
     void open_sockets() {
         LOG(INFO) << "Establish connections to peers";
         for (const auto &peer : processes) {
-            known_sockets.emplace(peer.first, peer.second);
+            known_sockets[peer.first] = open_socket(peer.second);
         }
         LOG(INFO) << "All peers connected";
     }
@@ -150,7 +149,7 @@ private:
 
     std::mutex sock_mt;
 
-    TcpClient &get_socket(const ProcessDescriptor &descriptor) {
+    int get_socket(const ProcessDescriptor &descriptor) {
         sock_mt.lock();
         return known_sockets.at(descriptor.id);
     }
@@ -169,12 +168,12 @@ public:
                           << cur_message_id;
                 auto client = get_socket(descriptor.second);
 
-                client.send_byte(message_type);
-                client.send_number(from);
-                client.send_number(cur_message_id);
-                client.send_lattice_vector(v);
-                client.send_number(k);
-                client.send_number(r);
+                send_byte(client, message_type);
+                send_number(client, from);
+                send_number(client, cur_message_id);
+                send_lattice_vector(client, v);
+                send_number(client, k);
+                send_number(client, r);
                 free_socket(descriptor.second);
             }
         }).detach();
@@ -188,10 +187,10 @@ public:
                 LOG(INFO) << ">> sending read to" << descriptor.second.id << "cur message id:" <<cur_message_id;
                 auto client = get_socket(descriptor.second);
 
-                client.send_byte(message_type);
-                client.send_number(from);
-                client.send_number(cur_message_id);
-                client.send_number(r);
+                send_byte(client, message_type);
+                send_number(client, from);
+                send_number(client, cur_message_id);
+                send_number(client, r);
                 free_socket(descriptor.second);
             }
         }).detach();
@@ -203,11 +202,11 @@ public:
         LOG(INFO) << ">> sending write ack to " << to << "cur message id:" << cur_message_id;
         auto client = get_socket(processes.at(to));
 
-        client.send_byte(message_type);
-        client.send_number(from);
-        client.send_number(cur_message_id);
-        client.send_recVal(recVal);
-        client.send_number(rec_r);
+        send_byte(client, message_type);
+        send_number(client, from);
+        send_number(client, cur_message_id);
+        send_recVal(client, recVal);
+        send_number(client, rec_r);
         free_socket(processes.at(to));
     }
 
@@ -217,11 +216,11 @@ public:
         LOG(INFO) << ">> sending read ack to" << to << "cur message id:" << cur_message_id;
         auto client = get_socket(processes.at(to));
 
-        client.send_byte(message_type);
-        client.send_number(from);
-        client.send_number(cur_message_id);
-        client.send_recVal(recVal);
-        client.send_number(r);
+        send_byte(client, message_type);
+        send_number(client, from);
+        send_number(client, cur_message_id);
+        send_recVal(client, recVal);
+        send_number(client, r);
         free_socket(processes.at(to));
     }
 
@@ -233,10 +232,10 @@ public:
                 LOG(INFO) << ">> sending value to " << descriptor.second.id << cur_message_id;
                 auto client = get_socket(descriptor.second);
 
-                client.send_byte(message_type);
-                client.send_number(from);
-                client.send_number(cur_message_id);
-                client.send_lattice_vector(v);
+                send_byte(client, message_type);
+                send_number(client, from);
+                send_number(client, cur_message_id);
+                send_lattice_vector(client, v);
                 free_socket(descriptor.second);
             }
         }).detach();

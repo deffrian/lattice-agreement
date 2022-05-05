@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
     coordinator_client.wait_for_start();
 
     LOG(INFO) << "Run la";
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
     protocol.open_sockets();
     // Run la

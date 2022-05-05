@@ -28,7 +28,6 @@ struct TcpClient {
         }
     }
 
-
     template<typename L>
     void send_recVal(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal) {
         send_number(recVal.size());
