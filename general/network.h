@@ -61,8 +61,19 @@ template<typename L>
 L read_lattice(int client_fd) {
     L res;
     uint64_t size = read_number(client_fd);
+    std::vector<uint64_t> data(size);
+    size_t bytes_read = 0;
+
+    while (bytes_read != size * 8) {
+        ssize_t len = read(client_fd, (char*)(data.data()) + bytes_read, 8 * size - bytes_read);
+        if (len <= 0) {
+            LOG(ERROR) << "Error reading lattice" << errno;
+            throw std::runtime_error("Error reading number: " + std::to_string(len));
+        }
+        bytes_read += len;
+    }
     for (uint64_t i = 0; i < size; ++i) {
-        res.insert(read_number(client_fd));
+        res.insert(data[i]);
     }
     return res;
 }

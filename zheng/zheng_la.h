@@ -83,11 +83,10 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     Class classifier(uint64_t k, std::unique_lock<std::mutex> &lk) {
         w.assign(n, L{});
 
-        LOG(INFO) << "Waiting for send ack";
+        LOG(ERROR) << "Waiting for send ack";
         protocol.send_write(v, k, r, i);
         while (write_ack_received < n - f) cv.wait(lk);
-        LOG(INFO) << "Done waiting for send ack";
-        write_ack_received = 0;
+        LOG(ERROR) << "Done waiting for send ack";
 
 
         build_w = true;
@@ -116,9 +115,9 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     }
 
     void receive_write_ack(const AcceptValT &recVal, uint64_t rec_r, uint64_t message_id) override {
+        cv_m.lock();
         LOG(INFO) << "<< write ack received" << message_id << (rec_r == r);
         if (rec_r == r) {
-            std::lock_guard lockGuard{cv_m};
             write_ack_received++;
             if (build_wp) {
                 for (auto &elem: recVal) {
@@ -131,9 +130,12 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
             }
             cv.notify_one();
         }
+        cv.notify_all();
+        cv_m.unlock();
     }
 
     void receive_read_ack(const AcceptValT &recVal, uint64_t rec_r, uint64_t message_id) override {
+        cv_m.lock();
         LOG(INFO) << "<< read ack received" << message_id << (rec_r == r) << build_w;
         if (rec_r == r && build_w) {
             std::lock_guard lockGuard{cv_m};
@@ -148,28 +150,49 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
             read_ack_received++;
             cv.notify_one();
         }
+        cv.notify_all();
+        cv_m.unlock();
     }
 
     void receive_value(const std::vector<L> &value, uint64_t message_id) override {
-        std::lock_guard lockGuard{cv_m};
-        LOG(INFO) << "<< value received" << message_id;
-        value_received++;
-        for (size_t k = 0; k < n; ++k) {
-            v[k] = L::join(v[k], value[k]);
+        cv_m.lock();
+//        LOG(ERROR) << "<< value received" << message_id;
+        if (value_received < n - f) {
+            for (size_t k = 0; k < n; ++k) {
+                v[k] = L::join(v[k], value[k]);
+            }
+            value_received++;
         }
-        cv.notify_one();
+        cv.notify_all();
+        cv_m.unlock();
     }
 
     void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from, uint64_t message_id) override {
-        std::lock_guard lockGuard{cv_m};
+        cv_m.lock();
         LOG(INFO) << "<< write received from " << from << " message id " << message_id;
-        acceptVal[rec_r].emplace_back(value, k);
-        protocol.send_write_ack(from, acceptVal[rec_r], rec_r, i, message_id);
+
+        if (!acceptValContains(acceptVal[rec_r], k, value)) {
+            acceptVal[rec_r].emplace_back(value, k);
+        }
+        auto copy = acceptVal[rec_r];
+        cv_m.unlock();
+        protocol.send_write_ack(from, copy, rec_r, i, message_id);
+    }
+
+    bool acceptValContains(const AcceptValT &recVal, uint64_t k, const std::vector<L> &value) {
+        for (size_t j = 0; j < recVal.size(); ++j) {
+            if (recVal[j].second == k && recVal[j].first == value) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void receive_read(uint64_t rec_r, uint64_t from, uint64_t message_id) override {
-        std::lock_guard lockGuard{cv_m};
+        cv_m.lock();
         LOG(INFO) << "<< read received from " << from << "message id" << message_id;
-        protocol.send_read_ack(from, acceptVal[rec_r], rec_r, i, message_id);
+        auto copy = acceptVal[rec_r];
+        cv_m.unlock();
+        protocol.send_read_ack(from, copy, rec_r, i, message_id);
     }
 };

@@ -150,6 +150,7 @@ struct LACoordinator {
         // Wait for results
         LOG(INFO) << "Waiting for results";
         uint64_t total_time = 0;
+        std::vector<std::pair<uint64_t, L>> results;
         for (uint64_t i = 0; i < n; ++i) {
             int sock = server.accept_client();
             uint8_t message_type = read_byte(sock);
@@ -161,6 +162,7 @@ struct LACoordinator {
             total_time += elapsed_time;
             uint64_t id = read_number(sock);
             L value = read_lattice<L>(sock);
+            results.push_back({id, value});
             LOG(INFO) << "Result from: " << id << " elapsed time: " << elapsed_time;
             for (auto elem: value.set) {
                 std::cout << elem << ' ';
@@ -175,6 +177,17 @@ struct LACoordinator {
             int sock = peer.second;
             send_byte(sock, Stop);
             close(sock);
+        }
+
+        LOG(INFO) << "Verifying";
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                bool fTos = results[i].second <= results[j].second;
+                bool sTof = results[j].second <= results[i].second;
+                if (!fTos && !sTof) {
+                    LOG(ERROR) << "Invalid results" << results[i].first << results[j].first;
+                }
+            }
         }
     }
 };

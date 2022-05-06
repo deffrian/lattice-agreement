@@ -150,6 +150,8 @@ private:
     std::mutex sock_mt;
 
     int get_socket(const ProcessDescriptor &descriptor) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+//        else std::this_thread::sleep_for(std::chrono::seconds(2));
         sock_mt.lock();
         return known_sockets.at(descriptor.id);
     }
@@ -184,7 +186,7 @@ public:
             uint8_t message_type = Read;
             for (const auto &descriptor: processes) {
                 uint64_t cur_message_id = message_id++;
-                LOG(INFO) << ">> sending read to" << descriptor.second.id << "cur message id:" <<cur_message_id;
+                LOG(INFO) << ">> sending read to" << descriptor.second.id << "cur message id:" << cur_message_id;
                 auto client = get_socket(descriptor.second);
 
                 send_byte(client, message_type);
@@ -200,6 +202,7 @@ public:
         uint8_t message_type = WriteAck;
 
         LOG(INFO) << ">> sending write ack to " << to << "cur message id:" << cur_message_id;
+//        LOG(ERROR) << "recVal size" << recVal.size();
         auto client = get_socket(processes.at(to));
 
         send_byte(client, message_type);
@@ -224,7 +227,7 @@ public:
         free_socket(processes.at(to));
     }
 
-    void send_value(const std::vector<L> &v, uint64_t from) {
+    void send_value(std::vector<L> v, uint64_t from) {
         std::thread([&, v, from]() {
             uint8_t message_type = Value;
             for (const auto &descriptor: processes) {
@@ -238,6 +241,7 @@ public:
                 send_lattice_vector(client, v);
                 free_socket(descriptor.second);
             }
+            LOG(ERROR) << "SEND VALUE COMPLETE";
         }).detach();
     }
 };
