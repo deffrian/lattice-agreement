@@ -28,6 +28,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
     std::condition_variable cv;
     std::mutex cv_m;
+    std::unique_lock<std::mutex> lk{cv_m};
 
     ZhengLA(uint64_t f, uint64_t n, uint64_t i, ProtocolTcp<L> &protocol) : f(f), n(n), i(i), protocol(protocol), v(n) {
         l = n - f / 2;
@@ -41,19 +42,21 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     };
 
     L start(const L &x) override {
+
         v[i] = x;
 
-        std::unique_lock<std::mutex> lk{cv_m};
-
         protocol.send_value(v, i);
-        LOG(INFO) << "Waiting for values";
-        while (value_received < n - f) cv.wait(lk);
-        LOG(INFO) << "All values received ";
+        LOG(ERROR) << "Waiting for values";
+        cv.wait(lk, [&] {
+//            LOG(ERROR) << "CHECK";
+            return value_received >= n - f;
+        });
+        LOG(ERROR) << "All values received ";
 
         uint64_t delta = f / 2;
         for (r = 1; r <= log_f; ++r) {
-            LOG(INFO) << "classifier iteration: " << r;
-            Class c = classifier(l, lk);
+            LOG(ERROR) << "classifier iteration: " << r;
+            Class c = classifier(l);
             delta /= 2;
             if (c == Master) {
                 v = w;
@@ -61,13 +64,14 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
             } else {
                 l = l - delta;
             }
-            LOG(INFO) << "classifier iteration done: " << r;
+            LOG(ERROR) << "classifier iteration done: " << r;
         }
 
         L y;
         for (size_t j = 0; j < n; ++j) {
             y = L::join(y, v[j]);
         }
+        lk.unlock();
         return y;
     }
 
@@ -80,17 +84,18 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     std::vector<AcceptValT> acceptVal;
 
 
-    Class classifier(uint64_t k, std::unique_lock<std::mutex> &lk) {
+    Class classifier(uint64_t k) {
         w.assign(n, L{});
 
         LOG(ERROR) << "Waiting for send ack";
         protocol.send_write(v, k, r, i);
         while (write_ack_received < n - f) cv.wait(lk);
+        write_ack_received = 0;
         LOG(ERROR) << "Done waiting for send ack";
 
 
-        build_w = true;
         protocol.send_read(r, i);
+        build_w = true;
         while (read_ack_received < n - f) cv.wait(lk);
         read_ack_received = 0;
         build_w = false;
@@ -128,7 +133,6 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
                     }
                 }
             }
-            cv.notify_one();
         }
         cv.notify_all();
         cv_m.unlock();
@@ -138,7 +142,6 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         cv_m.lock();
         LOG(INFO) << "<< read ack received" << message_id << (rec_r == r) << build_w;
         if (rec_r == r && build_w) {
-            std::lock_guard lockGuard{cv_m};
 //            std::cout << "locked" << std::endl;
             for (auto &elem: recVal) {
                 if (elem.second == l) {
@@ -148,7 +151,6 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
                 }
             }
             read_ack_received++;
-            cv.notify_one();
         }
         cv.notify_all();
         cv_m.unlock();

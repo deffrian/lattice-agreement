@@ -57,7 +57,7 @@ struct LACoordinatorClient {
             }
         }
         send_number(sock_from_coordinator, 11);
-//        close(sock);
+//        server.close_socket(sock_from_coordinator);
     }
 
     void wait_for_start() {
@@ -118,6 +118,7 @@ struct LACoordinator {
             coordinator_clients.push_back({{ip, i, coordinator_client_port}, -1});
             LOG(INFO) << "ip: " << ip << " id: " << i << " port: " << protocol_port << " coord_client_port: "
                       << coordinator_client_port;
+            server.close_socket(sock);
         }
 
         // Send test info
@@ -168,6 +169,7 @@ struct LACoordinator {
                 std::cout << elem << ' ';
             }
             std::cout << std::endl;
+            server.close_socket(sock);
         }
         std::cout << std::fixed;
         LOG(INFO) << "Average time: " << (double) total_time / (double) n;

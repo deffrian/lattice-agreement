@@ -59,6 +59,10 @@ int main(int argc, char *argv[]) {
 
     LOG(INFO) << "Run la";
     std::this_thread::sleep_for(std::chrono::seconds(10));
+//    std::this_thread::sleep_for(std::chrono::seconds(id));
+//    if (id > 20) {
+//        std::this_thread::sleep_for(std::chrono::seconds(240));
+//    }
 
     protocol.open_sockets();
     // Run la

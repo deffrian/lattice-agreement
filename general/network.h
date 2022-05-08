@@ -6,6 +6,7 @@
 #include <thread>
 #include <unistd.h>
 #include <unordered_set>
+#include <condition_variable>
 
 #include "general/logger.h"
 
@@ -106,9 +107,16 @@ int open_socket(const ProcessDescriptor &descriptor) {
     }
 
     if (connect(sock, (struct sockaddr*)&serv_addr,sizeof(serv_addr)) < 0) {
-        LOG(ERROR) << "Connection failed: " << descriptor.ip_address << ' ' << descriptor.port << " error: " << errno;
+        LOG(ERROR) << "Connection failed: " << descriptor.ip_address << descriptor.port << descriptor.id << " error:" << errno;
         throw std::runtime_error("Connection failed");
     }
+//    struct timeval tv;
+//
+//    tv.tv_sec = 3000000;
+//
+//    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval))) {
+//        throw std::runtime_error("Client timeout setup failed");
+//    }
     return sock;
 }
 
@@ -166,9 +174,13 @@ void send_recVal(int sock, const std::vector<std::pair<std::vector<L>, uint64_t>
 struct TcpServer {
     int server_fd;
 
+//    std::vector<int> all_connections;
+//    std::unordered_set<int> used_fds;
+
     std::mutex connections_mt;
-    std::unordered_set<int> used_fds;
-    std::vector<int> all_connections;
+    std::condition_variable connection_cv;
+    const size_t MAX_INCOMING_CONNECTIONS = 10;
+    uint64_t connections_number = 0;
 
     struct sockaddr_in address;
     int addrlen;
@@ -184,6 +196,15 @@ struct TcpServer {
         if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
             throw std::runtime_error("Server creation failed");
         }
+
+//        struct timeval tv;
+//
+//        tv.tv_sec = 3000000;
+//
+//        if (setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval))) {
+//            LOG(ERROR) << errno;
+//            throw std::runtime_error("Server timeout setup error");
+//        }
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = INADDR_ANY;
         address.sin_port = htons(port);
@@ -198,65 +219,88 @@ struct TcpServer {
     }
 
     int accept_client() {
+        {
+            std::unique_lock lk{connections_mt};
+            while (connections_number >= MAX_INCOMING_CONNECTIONS) { connection_cv.wait(lk); }
+            connections_number++;
+        }
         struct sockaddr_in client_addr;
         int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &addrlen);
         if (client_fd <= 0) {
             LOG(ERROR) << "Cant accept client" << errno;
             throw std::runtime_error("Cant accept client");
         }
-        all_connections.push_back(client_fd);
+//        LOG(ERROR) << "NEW ACCEPTED CLIENT" << client_fd;
+
+//        struct timeval tv;
+//
+//        tv.tv_sec = 3000000;
+//
+//        if (setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval))) {
+//            throw std::runtime_error("Client timeout setup failed");
+//        }
+//        all_connections.push_back(client_fd);
         return client_fd;
     }
 
     std::vector<int> select_clients() {
-        while (true) {
-            fd_set read_fd_set;
-            FD_ZERO(&read_fd_set);
-            {
-                std::lock_guard<std::mutex> lg{connections_mt};
-
-//                LOG tmp(INFO);
-//                tmp << "Used connections" << all_connections.size() << used_fds.size();
-                for (size_t i = 0; i < all_connections.size(); ++i) {
-                    if (used_fds.count(all_connections[i]) == 0) {
-                        FD_SET(all_connections[i], &read_fd_set);
-                    }
-                }
-            }
-            struct timeval timeout;
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 50000;
-//        LOG(INFO) << "SELECTING";
-            int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, &timeout);
-
-            if (select_val != 0) {
-                std::lock_guard<std::mutex> lg{connections_mt};
-
-                if (select_val < 0) {
-                    LOG(ERROR) << "Select error" << select_val;
-                    throw std::runtime_error("Select error");
-                }
-
-                std::vector<int> ans;
-                for (size_t i = 0; i < all_connections.size(); i++) {
-                    if ((FD_ISSET(all_connections[i], &read_fd_set)) && used_fds.count(all_connections[i]) == 0) {
-//                        LOG(INFO) << "Opened" << all_connections[i];
-                        used_fds.insert(all_connections[i]);
-                        ans.push_back(all_connections[i]);
-                    }
-                }
-                if (!ans.empty()) {
-                    return ans;
-                }
-            }
-        }
+//        while (true) {
+//            fd_set read_fd_set;
+//            FD_ZERO(&read_fd_set);
+//            {
+//                std::lock_guard<std::mutex> lg{connections_mt};
+//
+////                LOG tmp(INFO);
+////                tmp << "Used connections" << all_connections.size() << used_fds.size();
+//                for (size_t i = 0; i < all_connections.size(); ++i) {
+//                    if (used_fds.count(all_connections[i]) == 0) {
+//                        FD_SET(all_connections[i], &read_fd_set);
+//                    }
+//                }
+//            }
+//            struct timeval timeout;
+//            timeout.tv_sec = 0;
+//            timeout.tv_usec = 50000;
+////        LOG(INFO) << "SELECTING";
+//            int select_val = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, &timeout);
+//
+//            if (select_val != 0) {
+//                std::lock_guard<std::mutex> lg{connections_mt};
+//
+//                if (select_val < 0) {
+//                    LOG(ERROR) << "Select error" << select_val;
+//                    throw std::runtime_error("Select error");
+//                }
+//
+//                std::vector<int> ans;
+//                for (size_t i = 0; i < all_connections.size(); i++) {
+//                    if ((FD_ISSET(all_connections[i], &read_fd_set)) && used_fds.count(all_connections[i]) == 0) {
+////                        LOG(INFO) << "Opened" << all_connections[i];
+//                        used_fds.insert(all_connections[i]);
+//                        ans.push_back(all_connections[i]);
+//                    }
+//                }
+//                if (!ans.empty()) {
+//                    return ans;
+//                }
+//            }
+//        }
+        exit(EXIT_FAILURE);
     }
 
     void close_socket(int client_fd) {
 //        LOG(INFO) << "Trying to close" << client_fd;
-        std::lock_guard<std::mutex> lg{connections_mt};
+//        std::lock_guard<std::mutex> lg{connections_mt};
 //        LOG(INFO) << "Closed" << client_fd;
-        used_fds.erase(client_fd);
+//        used_fds.erase(client_fd);
+        std::lock_guard<std::mutex> lg{connections_mt};
+//        LOG(ERROR) << "CLOSING SOCKET" << client_fd;
+        connection_cv.notify_one();
+        connections_number--;
+        int res = close(client_fd);
+//        if (res == -1) {
+//            LOG(ERROR) << "Error closing socket" << errno;
+//        }
     }
 
     int accept_client(std::string &client_ip) {
