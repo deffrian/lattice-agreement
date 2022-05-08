@@ -40,6 +40,8 @@ struct ProtocolTcp {
     std::atomic<bool> should_stop = false;
     std::atomic<uint64_t> message_id;
 
+    std::atomic<uint64_t> message_cnt = 0;
+
     std::unordered_map<uint64_t, ProcessDescriptor> processes;
 
     ThreadPool<std::pair<int, Callback<L> *>> clients_processors;
@@ -177,6 +179,7 @@ private:
 
 public:
     void send_write(const std::vector<L> &v, uint64_t k, uint64_t r, uint64_t from) {
+        message_cnt++;
         std::thread([&, v, k, r, from]() {
             uint8_t message_type = Write;
             std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -198,6 +201,7 @@ public:
     }
 
     void send_read(uint64_t r, uint64_t from) {
+        message_cnt++;
         std::thread([&, r, from]() {
             uint8_t message_type = Read;
             std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -216,6 +220,7 @@ public:
     }
 
     void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t from, uint64_t cur_message_id) {
+        message_cnt++;
         uint8_t message_type = WriteAck;
 
         LOG(INFO) << ">> sending write ack to " << to << "cur message id:" << cur_message_id;
@@ -232,6 +237,7 @@ public:
     }
 
     void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from, uint64_t cur_message_id) {
+        message_cnt++;
         uint8_t message_type = ReadAck;
 
         LOG(INFO) << ">> sending read ack to" << to << "cur message id:" << cur_message_id;
@@ -246,6 +252,7 @@ public:
     }
 
     void send_value(std::vector<L> v, uint64_t from) {
+        message_cnt++;
         std::thread([&, v, from]() {
             uint8_t message_type = Value;
             for (const auto &descriptor: processes) {

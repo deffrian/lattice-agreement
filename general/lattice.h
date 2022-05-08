@@ -25,7 +25,7 @@ public:
 
     bool operator<=(const Self &other) const {
         for (auto elem : set) {
-            if (!other.set.contains(elem)) {
+            if (other.set.count(elem) == 0) {
                 return false;
             }
         }
