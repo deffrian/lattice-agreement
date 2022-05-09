@@ -162,7 +162,8 @@ private:
             }
             server.close_socket(client_fd);
         } catch (std::runtime_error &e) {
-            LOG(ERROR) << "* Exception while processing client" << message_id_rec << e.what();
+            LOG(ERROR) << "* Exception while processing client. message id:" << message_id_rec << "from:" << from
+                       << e.what();
         }
     }
 
