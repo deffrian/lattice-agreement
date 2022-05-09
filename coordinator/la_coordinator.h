@@ -156,8 +156,8 @@ struct LACoordinator {
             int sock = server.accept_client();
             uint8_t message_type = read_byte(sock);
             if (message_type != TestComplete) {
-                LOG(ERROR) << "Wrong message in wait for results";
-                throw std::runtime_error("Wrong message in wait for results");
+                LOG(ERROR) << "Wrong message in wait for results" << (int)message_type;
+                throw std::runtime_error("Wrong message in wait for results " + std::to_string((int)message_type));
             }
             uint64_t elapsed_time = read_number(sock);
             total_time += elapsed_time;
