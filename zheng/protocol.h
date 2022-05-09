@@ -117,8 +117,8 @@ private:
 
 
     void process_client(std::pair<int, Callback<L> *> &value) {
-        uint64_t from = -1;
-        uint64_t message_id_rec = -1;
+        uint64_t from = UINT64_MAX;
+        uint64_t message_id_rec = UINT64_MAX;
         try {
             auto callback = value.second;
             auto client_fd = value.first;
@@ -157,8 +157,8 @@ private:
                 uint64_t r = read_number(client_fd);
                 callback->receive_read_ack(recVal, r, message_id_rec);
             } else {
-                LOG(ERROR) << "Unknown message type" << message_type;
-                throw std::runtime_error("Unknown message type" + std::to_string(message_type));
+                LOG(ERROR) << "Unknown message type" << (int)message_type;
+                throw std::runtime_error("Unknown message type " + std::to_string((int)message_type));
             }
             server.close_socket(client_fd);
         } catch (std::runtime_error &e) {
