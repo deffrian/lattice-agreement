@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     auto end = std::chrono::steady_clock::now();
     uint64_t elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
 
-    LOG(ERROR) << "DONE" << id;
+    LOG(INFO) << "DONE" << id;
 
     std::cout << "Answer: " << std::endl;
 

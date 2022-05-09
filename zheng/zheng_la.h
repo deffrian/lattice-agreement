@@ -46,16 +46,16 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         v[i] = x;
 
         protocol.send_value(v, i);
-        LOG(ERROR) << "Waiting for values";
+        LOG(INFO) << "Waiting for values";
         cv.wait(lk, [&] {
 //            LOG(ERROR) << "CHECK";
             return value_received >= n - f;
         });
-        LOG(ERROR) << "All values received ";
+        LOG(INFO) << "All values received ";
 
         uint64_t delta = f / 2;
         for (r = 1; r <= log_f; ++r) {
-            LOG(ERROR) << "classifier iteration: " << r;
+            LOG(INFO) << "classifier iteration: " << r;
             Class c = classifier(l);
             delta /= 2;
             if (c == Master) {
@@ -64,7 +64,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
             } else {
                 l = l - delta;
             }
-            LOG(ERROR) << "classifier iteration done: " << r;
+            LOG(INFO) << "classifier iteration done: " << r;
         }
 
         L y;
@@ -87,11 +87,11 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     Class classifier(uint64_t k) {
         w.assign(n, L{});
 
-        LOG(ERROR) << "Waiting for send ack";
+        LOG(INFO) << "Waiting for send ack";
         protocol.send_write(v, k, r, i);
         while (write_ack_received < n - f) cv.wait(lk);
         write_ack_received = 0;
-        LOG(ERROR) << "Done waiting for send ack";
+        LOG(INFO) << "Done waiting for send ack";
 
 
         protocol.send_read(r, i);

@@ -157,8 +157,8 @@ private:
                 uint64_t r = read_number(client_fd);
                 callback->receive_read_ack(recVal, r, message_id_rec);
             } else {
-                LOG(ERROR) << "unknown message";
-                throw std::runtime_error("unknown message");
+                LOG(ERROR) << "Unknown message type" << message_type;
+                throw std::runtime_error("Unknown message type" + std::to_string(message_type));
             }
             server.close_socket(client_fd);
         } catch (std::runtime_error &e) {
@@ -301,7 +301,6 @@ public:
                     send_lattice_vector(client, v);
                     free_socket(client);
                 }
-                LOG(ERROR) << "SEND VALUE COMPLETE";
             } catch (std::runtime_error &e) {
                 LOG(ERROR) << "* Exception while send_value" << e.what();
             }
