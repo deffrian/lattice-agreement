@@ -267,19 +267,12 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
             LOG(INFO) << ">> sending read ack to" << to << "cur message id:" << cur_message_id;
             auto client = get_socket(processes.at(to));
-            LOG(INFO) << "HERE1";
             send_byte(client, message_type);
-            LOG(INFO) << "HERE2";
             send_number(client, from);
-            LOG(INFO) << "HERE3";
             send_number(client, cur_message_id);
-            LOG(INFO) << "HERE4";
             send_recVal(client, recVal);
-            LOG(INFO) << "HERE5";
             send_number(client, r);
-            LOG(INFO) << "HERE6";
             free_socket(client);
-            LOG(INFO) << "HERE7";
         } catch (std::runtime_error &e) {
             LOG(ERROR) << "* Exception while send_read_ack" << e.what();
         }
