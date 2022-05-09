@@ -179,7 +179,7 @@ struct TcpServer {
 
     std::mutex connections_mt;
     std::condition_variable connection_cv;
-    const size_t MAX_INCOMING_CONNECTIONS = 10;
+    const size_t MAX_INCOMING_CONNECTIONS = 100000;
     uint64_t connections_number = 0;
 
     struct sockaddr_in address;
