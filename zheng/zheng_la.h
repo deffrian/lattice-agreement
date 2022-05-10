@@ -30,6 +30,8 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     std::mutex cv_m;
     std::unique_lock<std::mutex> lk{cv_m};
 
+    uint64_t wait_time = 0;
+
     ZhengLA(uint64_t f, uint64_t n, uint64_t i, ProtocolTcp<L> &protocol) : f(f), n(n), i(i), protocol(protocol), v(n) {
         l = (double)n - (double) f / 2.;
         log_f = std::ceil(std::log2(f));
@@ -47,10 +49,13 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
         protocol.send_value(v, i);
         LOG(INFO) << "Waiting for values";
+        auto begin = std::chrono::steady_clock::now();
         cv.wait(lk, [&] {
 //            LOG(ERROR) << "CHECK";
             return value_received >= n - f;
         });
+        auto end = std::chrono::steady_clock::now();
+        wait_time += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
         LOG(INFO) << "All values received ";
 
         double delta = f / 2.;
@@ -89,14 +94,20 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
         LOG(INFO) << "Waiting for send ack";
         protocol.send_write(v, k, r, i);
+        auto begin = std::chrono::steady_clock::now();
         while (write_ack_received < n - f) cv.wait(lk);
+        auto end = std::chrono::steady_clock::now();
+        wait_time += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
         write_ack_received = 0;
         LOG(INFO) << "Done waiting for send ack";
 
 
         protocol.send_read(r, i);
         build_w = true;
+        begin = std::chrono::steady_clock::now();
         while (read_ack_received < n - f) cv.wait(lk);
+        end = std::chrono::steady_clock::now();
+        wait_time += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
         read_ack_received = 0;
         build_w = false;
 
@@ -110,7 +121,10 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         if ((double)h > k) {
             build_wp = true;
             protocol.send_write(w, k, r, i);
+            begin = std::chrono::steady_clock::now();
             while (write_ack_received < n - f) cv.wait(lk);
+            end = std::chrono::steady_clock::now();
+            wait_time += std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
             write_ack_received = 0;
             build_wp = false;
             return Master;
