@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 
     // Sending results
     LOG(INFO) << "Sending results";
-    coordinator_client.send_test_complete(elapsed_time, y);
+    coordinator_client.send_test_complete(protocol.message_cnt, y);
 
     // Wait before stopping protocol
     coordinator_client.wait_for_stop();
