@@ -152,33 +152,43 @@ struct LACoordinator {
         LOG(INFO) << "Waiting for results";
         uint64_t total_time = 0;
         std::vector<std::pair<uint64_t, L>> results;
-        for (uint64_t i = 0; i < n; ++i) {
-            int sock = server.accept_client();
-            uint8_t message_type = read_byte(sock);
-            if (message_type != TestComplete) {
-                LOG(ERROR) << "Wrong message in wait for results" << (int)message_type;
-                throw std::runtime_error("Wrong message in wait for results " + std::to_string((int)message_type));
-            }
-            uint64_t elapsed_time = read_number(sock);
-            total_time += elapsed_time;
-            uint64_t id = read_number(sock);
-            L value = read_lattice<L>(sock);
-            results.push_back({id, value});
-            LOG(INFO) << "Result from: " << id << " elapsed time: " << elapsed_time;
-            for (auto elem: value.set) {
-                std::cout << elem << ' ';
-            }
-            std::cout << std::endl;
-            server.close_socket(sock);
-        }
         std::cout << std::fixed;
-        LOG(INFO) << "Average time: " << (double) total_time / (double) n;
+        for (uint64_t i = 0; i < n; ++i) {
+            try {
+                int sock = server.accept_client();
+                uint8_t message_type = read_byte(sock);
+                if (message_type != TestComplete) {
+                    LOG(ERROR) << "Wrong message in wait for results" << (int) message_type;
+                    throw std::runtime_error("Wrong message in wait for results " + std::to_string((int) message_type));
+                }
+                uint64_t elapsed_time = read_number(sock);
+                total_time += elapsed_time;
+                uint64_t id = read_number(sock);
+                L value = read_lattice<L>(sock);
+                results.push_back({id, value});
+                LOG(INFO) << "Result from: " << id << " elapsed time: " << elapsed_time;
+                for (auto elem: value.set) {
+                    std::cout << elem << ' ';
+                }
+                std::cout << std::endl;
+                LOG(INFO) << "Current average time:" << (double) total_time / (double) n;
+                LOG(INFO) << "Done" << i + 1 << "/" << n;
+                server.close_socket(sock);
+            } catch (std::runtime_error &e) {
+                LOG(ERROR) << "* Exception while waiting for results" << e.what();
+            }
+        }
+        LOG(INFO) << "Total average time:" << (double) total_time / (double) n;
 
         // Send stop
         for (const auto &peer : coordinator_clients) {
-            int sock = open_socket(peer);
-            send_byte(sock, Stop);
-            close(sock);
+            try {
+                int sock = open_socket(peer);
+                send_byte(sock, Stop);
+                close(sock);
+            } catch (std::runtime_error &e) {
+                LOG(ERROR) << "* Exception" << "Cant stop process" << peer.id << e.what();
+            }
         }
 
         LOG(INFO) << "Verifying";

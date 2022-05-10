@@ -193,10 +193,10 @@ public:
     void send_write(const std::vector<L> &v, double k, uint64_t r, uint64_t from) {
         message_cnt++;
         std::thread([&, v, k, r, from]() {
-            try {
-                uint8_t message_type = Write;
-                std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
-                for (const auto &descriptor: processes) {
+            uint8_t message_type = Write;
+            std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
+            for (const auto &descriptor: processes) {
+                try {
                     uint64_t cur_message_id = message_id++;
                     LOG(INFO) << ">> sending write to" << descriptor.second.id << "from" << from << "message id"
                               << cur_message_id;
@@ -209,9 +209,9 @@ public:
                     send_double(client, k);
                     send_number(client, r);
                     free_socket(client);
+                } catch (std::runtime_error &e) {
+                    LOG(ERROR) << "* Exception while send_write" << e.what();
                 }
-            } catch (std::runtime_error &e) {
-                LOG(ERROR) << "* Exception while send_write" << e.what();
             }
         }).detach();
     }
@@ -219,10 +219,10 @@ public:
     void send_read(uint64_t r, uint64_t from) {
         message_cnt++;
         std::thread([&, r, from]() {
-            try {
-                uint8_t message_type = Read;
-                std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
-                for (const auto &descriptor: processes) {
+            uint8_t message_type = Read;
+            std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
+            for (const auto &descriptor: processes) {
+                try {
                     uint64_t cur_message_id = message_id++;
                     LOG(INFO) << ">> sending read to" << descriptor.second.id << "cur message id:" << cur_message_id;
                     auto client = get_socket(descriptor.second);
@@ -232,9 +232,9 @@ public:
                     send_number(client, cur_message_id);
                     send_number(client, r);
                     free_socket(client);
+                } catch (std::runtime_error &e) {
+                    LOG(ERROR) << "* Exception while send_read" << e.what();
                 }
-            } catch (std::runtime_error &e) {
-                LOG(ERROR) << "* Exception while send_read" << e.what();
             }
         }).detach();
     }
@@ -281,10 +281,10 @@ public:
     void send_value(std::vector<L> v, uint64_t from) {
         message_cnt++;
         std::thread([&, v, from]() {
-            try {
-                uint8_t message_type = Value;
-                std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
-                for (const auto &descriptor: processes) {
+            uint8_t message_type = Value;
+            std::this_thread::sleep_for(std::chrono::milliseconds(dist(mt)));
+            for (const auto &descriptor: processes) {
+                try {
                     uint64_t cur_message_id = message_id++;
                     LOG(INFO) << ">> sending value to " << descriptor.second.id << cur_message_id;
                     auto client = get_socket(descriptor.second);
@@ -294,10 +294,11 @@ public:
                     send_number(client, cur_message_id);
                     send_lattice_vector(client, v);
                     free_socket(client);
+                } catch (std::runtime_error &e) {
+                    LOG(ERROR) << "* Exception while send_value" << e.what();
                 }
-            } catch (std::runtime_error &e) {
-                LOG(ERROR) << "* Exception while send_value" << e.what();
             }
+
         }).detach();
     }
 };
