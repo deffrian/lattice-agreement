@@ -20,13 +20,13 @@ enum MessageType : uint8_t {
 
 template<typename L>
 struct Callback {
-    virtual void receive_write_ack(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t message_id) = 0;
+    virtual void receive_write_ack(const std::vector<std::pair<std::vector<L>, double>> &recVal, uint64_t rec_r, uint64_t message_id) = 0;
 
-    virtual void receive_read_ack(const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t message_id) = 0;
+    virtual void receive_read_ack(const std::vector<std::pair<std::vector<L>, double>> &recVal, uint64_t rec_r, uint64_t message_id) = 0;
 
     virtual void receive_value(const std::vector<L> &value, uint64_t message_id) = 0;
 
-    virtual void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from, uint64_t message_id) = 0;
+    virtual void receive_write(const std::vector<L> &value, double k, uint64_t rec_r, uint64_t from, uint64_t message_id) = 0;
 
     virtual void receive_read(uint64_t rec_r, uint64_t from, uint64_t message_id) = 0;
 
@@ -104,12 +104,12 @@ struct ProtocolTcp {
 
 private:
 
-    static std::vector<std::pair<std::vector<L>, uint64_t>> read_recVal(int client_fd) {
-        std::vector<std::pair<std::vector<L>, uint64_t>> recVal;
+    static std::vector<std::pair<std::vector<L>, double>> read_recVal(int client_fd) {
+        std::vector<std::pair<std::vector<L>, double>> recVal;
         uint64_t recVal_size = read_number(client_fd);
         for (uint64_t i = 0; i < recVal_size; ++i) {
             std::vector<L> l = read_lattice_vector<L>(client_fd);
-            uint64_t n = read_number(client_fd);
+            double n = read_double(client_fd);
             recVal.emplace_back(l, n);
         }
         return recVal;
@@ -142,7 +142,8 @@ private:
                 callback->receive_value(lv, message_id_rec);
             } else if (message_type == Write) {
                 auto val = read_lattice_vector<L>(client_fd);
-                uint64_t k = read_number(client_fd);
+                double k = read_double(client_fd);
+                LOG(ERROR) << "Receive write" << k;
                 uint64_t r = read_number(client_fd);
                 callback->receive_write(val, k, r, from, message_id_rec);
             } else if (message_type == Read) {
@@ -190,8 +191,9 @@ private:
     }
 
 public:
-    void send_write(const std::vector<L> &v, uint64_t k, uint64_t r, uint64_t from) {
+    void send_write(const std::vector<L> &v, double k, uint64_t r, uint64_t from) {
         message_cnt++;
+        LOG(ERROR) << "send_write" << k;
         std::thread([&, v, k, r, from]() {
             try {
                 uint8_t message_type = Write;
@@ -206,7 +208,7 @@ public:
                     send_number(client, from);
                     send_number(client, cur_message_id);
                     send_lattice_vector(client, v);
-                    send_number(client, k);
+                    send_double(client, k);
                     send_number(client, r);
                     free_socket(client);
                 }
@@ -239,7 +241,7 @@ public:
         }).detach();
     }
 
-    void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t rec_r, uint64_t from, uint64_t cur_message_id) {
+    void send_write_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, double>> &recVal, uint64_t rec_r, uint64_t from, uint64_t cur_message_id) {
         message_cnt++;
         uint8_t message_type = WriteAck;
         try {
@@ -260,7 +262,7 @@ public:
         }
     }
 
-    void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal, uint64_t r, uint64_t from, uint64_t cur_message_id) {
+    void send_read_ack(uint64_t to, const std::vector<std::pair<std::vector<L>, double>> &recVal, uint64_t r, uint64_t from, uint64_t cur_message_id) {
         message_cnt++;
         uint8_t message_type = ReadAck;
         try {

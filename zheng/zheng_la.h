@@ -15,7 +15,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
 
     const uint64_t f;
     const uint64_t n;
-    uint64_t l;
+    double l;
     uint64_t i;
     uint64_t log_f;
     uint64_t r;
@@ -31,7 +31,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     std::unique_lock<std::mutex> lk{cv_m};
 
     ZhengLA(uint64_t f, uint64_t n, uint64_t i, ProtocolTcp<L> &protocol) : f(f), n(n), i(i), protocol(protocol), v(n) {
-        l = n - f / 2;
+        l = (double)n - (double) f / 2.;
         log_f = std::ceil(std::log2(f));
         acceptVal.resize(log_f + 1);
     }
@@ -53,11 +53,11 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         });
         LOG(INFO) << "All values received ";
 
-        uint64_t delta = f / 2;
+        double delta = f / 2.;
         for (r = 1; r <= log_f; ++r) {
             LOG(INFO) << "classifier iteration: " << r;
             Class c = classifier(l);
-            delta /= 2;
+            delta /= 2.;
             if (c == Master) {
                 v = w;
                 l = l + delta;
@@ -80,11 +80,11 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
     bool build_w = false;
     bool build_wp = false;
 
-    using AcceptValT = std::vector<std::pair<std::vector<L>, uint64_t>>;
+    using AcceptValT = std::vector<std::pair<std::vector<L>, double>>;
     std::vector<AcceptValT> acceptVal;
 
 
-    Class classifier(uint64_t k) {
+    Class classifier(double k) {
         w.assign(n, L{});
 
         LOG(INFO) << "Waiting for send ack";
@@ -107,7 +107,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
             }
         }
 
-        if (h > k) {
+        if ((double)h > k) {
             build_wp = true;
             protocol.send_write(w, k, r, i);
             while (write_ack_received < n - f) cv.wait(lk);
@@ -169,7 +169,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         cv_m.unlock();
     }
 
-    void receive_write(const std::vector<L> &value, uint64_t k, uint64_t rec_r, uint64_t from, uint64_t message_id) override {
+    void receive_write(const std::vector<L> &value, double k, uint64_t rec_r, uint64_t from, uint64_t message_id) override {
         cv_m.lock();
         LOG(INFO) << "<< write received from " << from << " message id " << message_id;
 
@@ -181,7 +181,7 @@ struct ZhengLA : LatticeAgreement<L>, Callback<L> {
         protocol.send_write_ack(from, copy, rec_r, i, message_id);
     }
 
-    bool acceptValContains(const AcceptValT &recVal, uint64_t k, const std::vector<L> &value) {
+    bool acceptValContains(const AcceptValT &recVal, double k, const std::vector<L> &value) {
         for (size_t j = 0; j < recVal.size(); ++j) {
             if (recVal[j].second == k && recVal[j].first == value) {
                 return true;

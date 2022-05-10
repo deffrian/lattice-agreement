@@ -42,6 +42,21 @@ uint64_t read_number(int client_fd) {
     return number;
 }
 
+double read_double(int client_fd) {
+    double number;
+    size_t bytes_read = 0;
+
+    while (bytes_read != sizeof(double)) {
+        ssize_t len = read(client_fd, (char *) (&number) + bytes_read, sizeof(double) - bytes_read);
+        if (len <= 0) {
+            LOG(ERROR) << "Error reading double" << errno;
+            throw std::runtime_error("Error reading double: " + std::to_string(len));
+        }
+        bytes_read += len;
+    }
+    return number;
+}
+
 std::string read_string(int client_fd) {
     uint64_t s_len = read_number(client_fd);
     std::string s(s_len, ' ');
@@ -137,6 +152,14 @@ void send_number(int sock, uint64_t num) {
     }
 }
 
+void send_double(int sock, double num) {
+    ssize_t len = send(sock, (void *)&num, sizeof(double), 0);
+    if (len != sizeof(double)) {
+        LOG(ERROR) << "Error sending double:" << errno;
+        throw std::runtime_error("Error sending double: " + std::to_string(len));
+    }
+}
+
 void send_string(int sock, const std::string &s) {
     send_number(sock, s.length());
     ssize_t len = send(sock, s.data(), s.length(), 0);
@@ -163,11 +186,11 @@ void send_lattice_vector(int sock, const std::vector<L> &v) {
 }
 
 template<typename L>
-void send_recVal(int sock, const std::vector<std::pair<std::vector<L>, uint64_t>> &recVal) {
+void send_recVal(int sock, const std::vector<std::pair<std::vector<L>, double>> &recVal) {
     send_number(sock, recVal.size());
     for (auto elem: recVal) {
         send_lattice_vector(sock, elem.first);
-        send_number(sock, elem.second);
+        send_double(sock, elem.second);
     }
 }
 
