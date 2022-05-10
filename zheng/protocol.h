@@ -143,7 +143,6 @@ private:
             } else if (message_type == Write) {
                 auto val = read_lattice_vector<L>(client_fd);
                 double k = read_double(client_fd);
-                LOG(ERROR) << "Receive write" << k;
                 uint64_t r = read_number(client_fd);
                 callback->receive_write(val, k, r, from, message_id_rec);
             } else if (message_type == Read) {
@@ -193,7 +192,6 @@ private:
 public:
     void send_write(const std::vector<L> &v, double k, uint64_t r, uint64_t from) {
         message_cnt++;
-        LOG(ERROR) << "send_write" << k;
         std::thread([&, v, k, r, from]() {
             try {
                 uint8_t message_type = Write;
