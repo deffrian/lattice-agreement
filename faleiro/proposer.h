@@ -2,7 +2,6 @@
 
 #include <optional>
 #include <unistd.h>
-#include <cassert>
 #include <random>
 
 #include "lattice.h"
@@ -118,18 +117,13 @@ struct ProposerProtocolTcp {
     std::variant<Ack<L>, Nack<L>> get_reply(const ProposerRequest<L> &proposal, const ProcessDescriptor &descriptor) {
         int sock = open_socket(descriptor);
         std::cout << "Sending request" << std::endl;
-//        send_number(sock, proposal.proposal_number);
         send_number(sock, proposal.proposal_number);
         send_number(sock, proposal.proposer_id);
         send_lattice(sock, proposal.proposed_value);
 
         std::cout << "Receiving reply" << std::endl;
 
-        uint8_t isAck = -1;
-        ssize_t len = read(sock, &isAck, 1);
-        if (len != 1) {
-            assert(false);
-        }
+        uint8_t isAck = read_byte(sock);
         uint64_t proposal_number = read_number(sock);
         uint64_t proposer_id = read_number(sock);
         auto set_recv = read_lattice<LatticeSet>(sock);

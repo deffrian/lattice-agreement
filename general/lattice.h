@@ -25,11 +25,16 @@ public:
 
     bool operator<=(const Self &other) const {
         for (auto elem : set) {
-            if (!other.set.contains(elem)) {
+            if (other.set.count(elem) == 0) {
                 return false;
             }
         }
         return true;
+    }
+
+    bool operator==(const Self &other) const {
+        if (set.size() != other.set.size()) return false;
+        return *this <= other && other <= *this;
     }
 
     void insert(uint64_t elem) {
