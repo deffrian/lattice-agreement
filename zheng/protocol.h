@@ -51,7 +51,7 @@ struct ProtocolTcp {
 
     std::random_device dev;
     std::mt19937 mt{dev()};
-    std::uniform_int_distribution<uint64_t> dist{5000, 15000}; // 0.5 sec - 1.5 sec
+    std::uniform_int_distribution<uint64_t> dist{2000, 4000}; // 0.5 sec - 1.5 sec
 
     std::mutex connections_mt;
     std::condition_variable connection_cv;
