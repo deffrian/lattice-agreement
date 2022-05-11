@@ -3,6 +3,7 @@
 #include <functional>
 #include <thread>
 #include <mutex>
+#include <queue>
 
 template <typename T>
 struct ThreadPool {

@@ -1,54 +1,77 @@
 #include <iostream>
 #include <fstream>
 
-#include "lattice.h"
+#include "general/lattice.h"
 #include "acceptor.h"
 #include "proposer.h"
-
-template<typename L>
-void read_acceptors_from_config(const std::string &acceptors_config, ProposerProtocolTcp<L> &protocol) {
-    std::ifstream s(acceptors_config);
-    std::string ip;
-    uint64_t port;
-    uint64_t id;
-    while ((s >> ip) && (s >> port) && (s >> id)) {
-        protocol.add_acceptor({ip, id, port});
-    }
-    s.close();
-}
-
-template<typename L>
-void read_set_from_config(const std::string &set_config, L &set) {
-    std::ifstream s(set_config);
-    uint64_t elem;
-    while (s >> elem) {
-        set.insert(elem);
-    }
-    s.close();
-}
+#include "coordinator/la_coordinator.h"
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        std::cout << "wrong args" << std::endl;
-        std::cout << "s port id" << std::endl;
-        std::cout << "c acceptors_cfg set_cfg" << std::endl;
-        return -1;
+    if (argc != 6) {
+        LOG(ERROR) << "usage: ip port coordinator_port coordinator_ip coordinator_client_port";
+        throw std::runtime_error("usage");
     }
-    if (argv[1][0] == 's') {
-        AcceptorProtocolTcp<LatticeSet> acceptor_protocol;
-        Acceptor<LatticeSet> acceptor1(std::stoi(argv[3]));
-        acceptor_protocol.start(acceptor1, std::stoi(argv[2]));
-    } else {
-        ProposerProtocolTcp<LatticeSet> protocol;
-        LatticeSet s;
-        read_acceptors_from_config(argv[2], protocol);
-        read_set_from_config(argv[3], s);
-        Proposer<LatticeSet, ProposerProtocolTcp<LatticeSet>> proposer(protocol);
-        auto result = proposer.start(s);
-        for (auto elem : result.set) {
-            std::cout << elem << ' ';
-        }
-        std::cout << std::endl;
+
+    std::string ip = argv[1];
+    uint64_t port = std::stoi(argv[2]);
+    uint64_t coordinator_port = std::stoi(argv[3]);
+    uint64_t coordinator_client_port = std::stoi(argv[5]);
+    ProcessDescriptor coordinator_descriptor{argv[4], 10, coordinator_port};
+    LACoordinatorClient<LatticeSet> coordinator_client(coordinator_client_port, coordinator_descriptor);
+
+    // Register self
+    uint64_t id = coordinator_client.send_register(port, coordinator_client_port, ip);
+    uint64_t n;
+    uint64_t f;
+    LatticeSet initial_value;
+    std::vector<ProcessDescriptor> peers;
+
+    // Receive test info
+    coordinator_client.wait_for_test_info(n, f, initial_value, peers);
+
+    LOG(INFO) << "Starting protocol" << port << id;
+    // Setup server
+    FaleiroProtocol<LatticeSet> protocol(port);
+
+    for (const auto &item: peers) {
+        protocol.add_process(item);
     }
+
+    Acceptor<LatticeSet> acceptor(protocol);
+    Proposer<LatticeSet> proposer(protocol, id, n);
+
+    // Starting server
+    std::cout << "Start server. port: " << port << std::endl;
+    protocol.start(&acceptor, &proposer);
+
+    // Wait for start signal
+    coordinator_client.wait_for_start();
+
+    LOG(INFO) << "Run la";
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+
+    // Run la
+    auto begin = std::chrono::steady_clock::now();
+    auto y = proposer.start(initial_value);
+    auto end = std::chrono::steady_clock::now();
+    uint64_t elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+
+    LOG(INFO) << "DONE" << id;
+
+    std::cout << "Answer: " << std::endl;
+
+    for (auto elem: y.set) {
+        std::cout << elem << ' ';
+    }
+    std::cout << std::endl;
+    std::cout << "Elapsed microseconds: " + std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) + '\n';
+
+    // Sending results
+    LOG(INFO) << "Sending results";
+    coordinator_client.send_test_complete(elapsed_time, y);
+
+    // Wait before stopping protocol
+    coordinator_client.wait_for_stop();
+    protocol.stop();
 }
 
