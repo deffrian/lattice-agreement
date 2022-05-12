@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <iostream>
+#include "lattice.h"
 
 enum LogLevel {
     ERROR,
@@ -29,6 +30,26 @@ struct LOG {
     template<typename T>
     LOG & operator<<(const T& message) {
         ss << message << ' ';
+        return *this;
+    }
+
+    template<typename T>
+    LOG & operator<<(const std::vector<T> &message) {
+        ss << '{';
+        for (auto elem : message) {
+            *this << elem << ',';
+        }
+        ss << "} ";
+        return *this;
+    }
+
+    template<>
+    LOG & operator<<(const LatticeSet &message) {
+        ss << '{';
+        for (auto elem : message.set) {
+            ss << elem << ',';
+        }
+        ss << "} ";
         return *this;
     }
 

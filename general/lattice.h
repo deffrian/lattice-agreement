@@ -32,9 +32,17 @@ public:
         return true;
     }
 
+    bool operator<(const Self &other) const {
+        return *this <= other && *this != other;
+    }
+
     bool operator==(const Self &other) const {
         if (set.size() != other.set.size()) return false;
         return *this <= other && other <= *this;
+    }
+
+    bool operator!=(const Self &other) const {
+        return !(*this == other);
     }
 
     void insert(uint64_t elem) {

@@ -59,18 +59,18 @@ struct FaleiroProtocol {
 
     explicit FaleiroProtocol(uint64_t port) : server(port), clients_processors(
             [&](std::tuple<int, AcceptorCallback<L> *, ProposerCallback<L> *> &val) { this->process_client(val); }, 3),
-                                              thread_pool(
+                                              acceptor_pool(
                                                       [&](std::pair<uint64_t, AcceptorResponse<L>> &data) {
-                                                          this->send_response_pool(data);
+                                                          this->acceptor_pool_processor(data);
                                                       }, 3) {}
 
-    ThreadPool<std::pair<uint64_t, AcceptorResponse<L>>> thread_pool;
+    ThreadPool<std::pair<uint64_t, AcceptorResponse<L>>> acceptor_pool;
 
     void send_response(uint64_t to, AcceptorResponse<L> &response) {
-        thread_pool.add_job({to, response});
+        acceptor_pool.add_job({to, response});
     }
 
-    void send_response_pool(const std::pair<uint64_t, AcceptorResponse<L>> &data) {
+    void acceptor_pool_processor(const std::pair<uint64_t, AcceptorResponse<L>> &data) {
         uint64_t to = data.first;
         auto response = data.second;
         uint8_t isAck = std::holds_alternative<Ack<L>>(response);
