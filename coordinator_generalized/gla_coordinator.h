@@ -192,12 +192,21 @@ struct GLACoordinator {
 
         LOG(INFO) << "Verifying";
         std::vector<L> all_learnt;
-        L prev;
+
         for (const auto &vec : results) {
-            for (const auto &elem : vec.second) {
+            L prev{};
+            for (size_t i = 0; i < vec.second.size(); ++i) {
+                const auto &elem = vec.second[i];
                 all_learnt.push_back(elem);
-                if (elem < prev) {
-                    LOG(ERROR) << "Invalid results decreasing" << vec.first;
+
+                L proposed;
+                proposed.insert(i * n + vec.first);
+                if (elem < proposed) {
+                    LOG(ERROR) << "Invalid result proposal ignored" << vec.first;
+                }
+                bool prev_lt_cur = prev <= elem;
+                if (!prev_lt_cur) {
+                    LOG(ERROR) << "Invalid results decreasing" << vec.first << prev << elem;
                 }
                 prev = elem;
             }
