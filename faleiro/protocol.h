@@ -2,6 +2,8 @@
 
 #include <variant>
 #include <vector>
+#include <atomic>
+
 #include "general/network.h"
 #include "general/thread_pool.h"
 
