@@ -3,6 +3,7 @@
 #include <variant>
 #include <vector>
 #include <atomic>
+#include <random>
 
 #include "general/network.h"
 #include "general/thread_pool.h"
@@ -59,6 +60,11 @@ struct FaleiroProtocol {
 
     std::atomic<bool> should_stop = false;
 
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution{100, 10};
+
+
+
     explicit FaleiroProtocol(uint64_t port) : server(port), clients_processors(
             [&](std::tuple<int, AcceptorCallback<L> *, ProposerCallback<L> *> &val) { this->process_client(val); }, 3),
                                               acceptor_pool(
@@ -76,6 +82,7 @@ struct FaleiroProtocol {
         uint64_t to = data.first;
         auto response = data.second;
         uint8_t isAck = std::holds_alternative<Ack<L>>(response);
+        std::this_thread::sleep_for(std::chrono::milliseconds((uint64_t)distribution(generator)));
         int sock = open_socket(descriptors.at(to));
         send_byte(sock, ToProposer);
         if (isAck) {
@@ -97,6 +104,7 @@ struct FaleiroProtocol {
 
     void send_proposal(const L &proposed_value, uint64_t proposal_number, uint64_t proposer_id) {
         std::thread([&, proposed_value, proposal_number, proposer_id]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds((uint64_t)distribution(generator)));
             for (const auto& peer: descriptors) {
                 try {
                     LOG(INFO) << ">> sending propose to" << peer.first;
