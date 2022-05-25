@@ -6,7 +6,6 @@
 
 #include "general/lattice_agreement.h"
 #include "general/lattice.h"
-#include "general/network.h"
 #include "acceptor.h"
 
 enum Status {

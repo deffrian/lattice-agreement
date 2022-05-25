@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     FaleiroProtocol<LatticeSet> protocol(port);
 
     for (const auto &item: peers) {
-        protocol.add_process(item);
+        protocol.add_process({item.ip_address, item.id, item.port});
     }
 
     Acceptor<LatticeSet> acceptor(protocol);

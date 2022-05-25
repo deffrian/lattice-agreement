@@ -39,6 +39,11 @@ namespace net {
         Message& operator>>(T &val) {
             static_assert(std::is_standard_layout<T>::value, "Incorrect type");
 
+            if (data.size() < cur_pos + sizeof(T)) {
+                LOG(ERROR) << "Invalid read";
+                throw std::runtime_error("Invalid read");
+            }
+
             memcpy(&val, data.data() + cur_pos, sizeof(T));
 
             cur_pos += sizeof(T);
