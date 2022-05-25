@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     FaleiroProtocol<LatticeSet> protocol(port);
 
     for (const auto &item: peers) {
-        protocol.add_process(item);
+        protocol.add_process({item.ip_address, item.id, item.port});
     }
 
     Acceptor<LatticeSet> acceptor(protocol);
@@ -72,6 +72,8 @@ int main(int argc, char *argv[]) {
 
     // Wait before stopping protocol
     coordinator_client.wait_for_stop();
+    std::this_thread::sleep_for(std::chrono::seconds(5));
     protocol.stop();
+
 }
 

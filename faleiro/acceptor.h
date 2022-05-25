@@ -1,7 +1,7 @@
 #pragma once
 
 #include "general/lattice.h"
-#include "general/network.h"
+#include "general/logger.h"
 #include "protocol.h"
 
 template<typename L>

@@ -2,6 +2,8 @@
 
 #include <sstream>
 #include <iostream>
+#include <vector>
+
 #include "lattice.h"
 
 enum LogLevel {

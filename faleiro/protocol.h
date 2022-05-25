@@ -5,8 +5,9 @@
 #include <atomic>
 #include <random>
 
-#include "general/network.h"
-#include "general/thread_pool.h"
+#include <asio.hpp>
+
+#include "general/net/server.h"
 
 template<typename L>
 struct Ack {
@@ -51,69 +52,45 @@ enum Recipient : uint8_t {
 };
 
 template<typename L>
-struct FaleiroProtocol {
+struct FaleiroProtocol : net::IMessageReceivedCallback {
 
-    TcpServer server;
-    ThreadPool<std::tuple<int, AcceptorCallback<L> *, ProposerCallback<L> *>> clients_processors;
-
-    std::unordered_map<uint64_t, ProcessDescriptor> descriptors;
+    std::unordered_map<uint64_t, net::ProcessDescriptor> descriptors;
 
     std::atomic<bool> should_stop = false;
 
-    std::default_random_engine generator;
-    std::normal_distribution<double> distribution{100, 10};
+    AcceptorCallback<L> *acceptor_callback;
+    ProposerCallback<L> *proposer_callback;
 
+    net::Server server;
 
+    explicit FaleiroProtocol(uint64_t port) : server(this, port) {
 
-    explicit FaleiroProtocol(uint64_t port) : server(port), clients_processors(
-            [&](std::tuple<int, AcceptorCallback<L> *, ProposerCallback<L> *> &val) { this->process_client(val); }, 3),
-                                              acceptor_pool(
-                                                      [&](std::pair<uint64_t, AcceptorResponse<L>> &data) {
-                                                          this->acceptor_pool_processor(data);
-                                                      }, 3) {}
-
-    ThreadPool<std::pair<uint64_t, AcceptorResponse<L>>> acceptor_pool;
-
-    void send_response(uint64_t to, AcceptorResponse<L> &response) {
-        acceptor_pool.add_job({to, response});
     }
 
-    void acceptor_pool_processor(const std::pair<uint64_t, AcceptorResponse<L>> &data) {
-        uint64_t to = data.first;
-        auto response = data.second;
+    void send_response(uint64_t to, AcceptorResponse<L> &response) {
         uint8_t isAck = std::holds_alternative<Ack<L>>(response);
-        std::this_thread::sleep_for(std::chrono::milliseconds((uint64_t)distribution(generator)));
-        int sock = open_socket(descriptors.at(to));
-        send_byte(sock, ToProposer);
+        net::Message message;
+        message << ToProposer;
         if (isAck) {
             LOG(INFO) << ">> sending ack to" << to;
             Ack<L> res = std::get<Ack<L>>(response);
-            send_byte(sock, isAck);
-            send_number(sock, res.proposal_number);
-            send_number(sock, res.proposer_id);
-            send_lattice(sock, res.proposed_value);
+            message << isAck << res.proposal_number << res.proposer_id << res.proposed_value;
         } else {
             LOG(INFO) << ">> sending nack to" << to;
             Nack<L> res = std::get<Nack<L>>(response);
-            send_byte(sock, isAck);
-            send_number(sock, res.proposal_number);
-            send_number(sock, res.proposer_id);
-            send_lattice(sock, res.proposed_value);
+            message << isAck << res.proposal_number << res.proposer_id << res.proposed_value;
         }
+        server.send(descriptors.at(to), message);
     }
 
     void send_proposal(const L &proposed_value, uint64_t proposal_number, uint64_t proposer_id) {
         std::thread([&, proposed_value, proposal_number, proposer_id]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds((uint64_t)distribution(generator)));
             for (const auto& peer: descriptors) {
                 try {
                     LOG(INFO) << ">> sending propose to" << peer.first;
-                    int sock = open_socket(peer.second);
-                    send_byte(sock, ToAcceptor);
-                    send_number(sock, proposal_number);
-                    send_lattice(sock, proposed_value);
-                    send_number(sock, proposer_id);
-                    close(sock);
+                    net::Message message;
+                    message << ToAcceptor << proposal_number << proposed_value << proposer_id;
+                    server.send(peer.second, message);
                 } catch (std::runtime_error &e) {
                     LOG(ERROR) << "* Exception while send_proposal" << e.what();
                 }
@@ -122,35 +99,32 @@ struct FaleiroProtocol {
     }
 
     void start(AcceptorCallback<L> *acceptorCallback, ProposerCallback<L> *proposerCallback) {
-        std::thread(
-                [&, acceptorCallback, proposerCallback]() {
-                    while (!should_stop) {
-                        int socket = server.accept_client();
-                        clients_processors.add_job({socket, acceptorCallback, proposerCallback});
-                    }
-                }).detach();
+        acceptor_callback = acceptorCallback;
+        proposer_callback = proposerCallback;
+        server.start();
     }
 
-    void process_client(std::tuple<int, AcceptorCallback<L> *, ProposerCallback<L> *> &val) {
-        int sock = std::get<0>(val);
-        auto acceptorCallback = std::get<1>(val);
-        auto proposerCallback = std::get<2>(val);
-
-        uint8_t message_type = read_byte(sock);
+    void on_message_received(net::Message &message) override {
+        uint8_t message_type;
+        message >> message_type;
         if (message_type == ToAcceptor) {
-            uint64_t proposal_number = read_number(sock);
-            L proposed_value = read_lattice<L>(sock);
-            uint64_t proposer_id = read_number(sock);
-            acceptorCallback->process_proposal(proposal_number, proposed_value, proposer_id);
+            uint64_t proposal_number;
+            L proposed_value;
+            uint64_t proposer_id;
+            message >> proposal_number >> proposed_value >> proposer_id;
+            LOG(INFO ) << "message" << "acceptor" << proposal_number << proposed_value << proposer_id;
+            acceptor_callback->process_proposal(proposal_number, proposed_value, proposer_id);
         } else if (message_type == ToProposer) {
-            uint8_t isAck = read_byte(sock);
-            uint64_t proposal_number = read_number(sock);
-            uint64_t _proposer_id = read_number(sock);
-            L lattice = read_lattice<L>(sock);
+            uint8_t isAck;
+            uint64_t proposal_number;
+            uint64_t _proposer_id;
+            L lattice;
+            message >> isAck >> proposal_number >> _proposer_id >> lattice;
+            LOG(INFO ) << "message" << "proposer" << isAck << proposal_number << _proposer_id;
             if (isAck == 1) {
-                proposerCallback->process_ack(proposal_number);
+                proposer_callback->process_ack(proposal_number);
             } else if (isAck == 0) {
-                proposerCallback->process_nack(proposal_number, lattice);
+                proposer_callback->process_nack(proposal_number, lattice);
             } else {
                 LOG(ERROR) << "Wrong isAck" << (int)isAck;
                 throw std::runtime_error("wrong isAck");
@@ -159,14 +133,14 @@ struct FaleiroProtocol {
             LOG(ERROR) << "Unknown message type:" << (int)message_type;
             throw std::runtime_error("unknown message type");
         }
-        close(sock);
     }
 
-    void add_process(const ProcessDescriptor &descriptor) {
+    void add_process(const net::ProcessDescriptor &descriptor) {
         descriptors[descriptor.id] = descriptor;
     }
 
     void stop() {
         should_stop = true;
+        server.stop();
     }
 };

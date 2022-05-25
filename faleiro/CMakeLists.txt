@@ -7,6 +7,8 @@ find_package(Threads REQUIRED)
 
 add_executable(faleiro acceptor.h main.cpp)
 
+target_link_libraries(faleiro asio)
+
 if(THREADS_HAVE_PTHREAD_ARG)
     target_compile_options(faleiro PUBLIC "-pthread")
 endif()
