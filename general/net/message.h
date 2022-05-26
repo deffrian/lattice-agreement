@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../logger.h"
+
 namespace net {
 
     struct Message {
@@ -28,10 +30,17 @@ namespace net {
 
         template<typename T>
         Message& operator<<(const std::vector<T> &val) {
-            *this << val.set.size();
-            for (const auto &elem : val.set) {
+            *this << val.size();
+            for (const auto &elem : val) {
                 *this << elem;
             }
+            return *this;
+        }
+
+        template<typename L, typename R>
+        Message& operator<<(const std::pair<L, R> &val) {
+            *this << val.first;
+            *this << val.second;
             return *this;
         }
 
@@ -63,14 +72,21 @@ namespace net {
         }
 
         template<typename T>
-        Message& operator>>(std::vector<T> &val) {
+        Message &operator>>(std::vector<T> &val) {
             uint64_t size;
             *this >> size;
             for (uint64_t i = 0; i < size; ++i) {
-                uint64_t elem;
+                T elem;
                 *this >> elem;
                 val.push_back(elem);
             }
+            return *this;
+        }
+
+        template<typename L, typename R>
+        Message& operator>>(std::pair<L, R> &val) {
+            *this >> val.first;
+            *this >> val.second;
             return *this;
         }
     };

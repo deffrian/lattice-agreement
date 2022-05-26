@@ -55,4 +55,12 @@ struct LOG {
         return *this;
     }
 
+    template<typename L, typename R>
+    LOG & operator<<(const std::pair<L, R> &message) {
+        ss << '(';
+        *this << message.first << message.second;
+        ss << ")";
+        return *this;
+    }
+
 };
