@@ -53,7 +53,11 @@ struct ProtocolTcp : net::IMessageReceivedCallback {
     void start(Callback<L> *callback) {
         this->callback = callback;
         LOG(INFO) << "starting server thread processes cnt: " << processes.size();
-        server.start();
+        std::vector<net::ProcessDescriptor> tmp;
+        for (const auto &descriptor: processes) {
+            tmp.push_back(descriptor.second);
+        }
+        server.start(tmp);
     }
 
     void stop() {
