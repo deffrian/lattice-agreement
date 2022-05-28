@@ -20,29 +20,29 @@ namespace net {
                   callback(callback) {}
 
         void receive() {
-            read_header(shared_from_this());
+            read_header();
         }
 
     private:
-        static void read_header(std::shared_ptr<ReadConnection> self) {
-            asio::async_read(self->socket, asio::buffer(&self->message.size, sizeof(self->message.size)),
-                [&, self](std::error_code er, size_t len) {
+        void read_header() {
+            asio::async_read(socket, asio::buffer(&message.size, sizeof(message.size)),
+                [&](std::error_code er, size_t len) {
                     if (!er) {
-                        self->message.data.resize(self->message.size);
-                        read_data(self);
+                        message.data.resize(message.size);
+                        read_data();
                     } else {
                         LOG(ERROR) << "Error reading header:" << er.message();
-                        self->socket.close();
+                        socket.close();
                     }
                 });
         }
 
-        static void read_data(std::shared_ptr<ReadConnection> self) {
-            asio::async_read(self->socket, asio::buffer(self->message.data.data(), self->message.size),
-                [&, self](std::error_code er, size_t len) {
-                    self->socket.close();
+        void read_data() {
+            asio::async_read(socket, asio::buffer(message.data.data(), message.size),
+                [&](std::error_code er, size_t len) {
                     if (!er) {
-                        self->callback->on_message_received(self->message);
+                        callback->on_message_received(message);
+                        read_header();
                     } else {
                         LOG(ERROR) << "Error reading data:" << er.message();
                     }
@@ -52,55 +52,90 @@ namespace net {
 
     struct WriteConnection : std::enable_shared_from_this<WriteConnection> {
 
-        asio::ip::tcp::socket socket;
         asio::io_context &context;
-        Message message;
+        asio::ip::tcp::socket socket;
+
         ProcessDescriptor descriptor;
 
-        WriteConnection(asio::io_context &context, ProcessDescriptor descriptor, Message message)
-                : message(std::move(message)),
-                  context(context),
-                  socket(context),
-                  descriptor(std::move(descriptor)) {}
+        std::mutex mt;
+        std::queue<Message> messages;
+        Message cur_message;
 
-        void send() {
-            connect(shared_from_this());
+        uint64_t attempt = 0;
+
+        WriteConnection(asio::io_context &context, ProcessDescriptor descriptor)
+                : context(context),
+                  socket(context),
+                  descriptor(std::move(descriptor)) {
+            connect();
         }
 
-    private:
-        static void connect(std::shared_ptr<WriteConnection> self) {
-            asio::ip::tcp::resolver resolver(self->context);
-            asio::ip::tcp::resolver::results_type endpoints
-                    = resolver.resolve(self->descriptor.ip_address, std::to_string(self->descriptor.port));
-            asio::async_connect(self->socket, endpoints, [&, self](std::error_code er, const asio::ip::tcp::endpoint &endpoint) {
-                if (!er) {
-                    write_header(self);
-                } else {
-                    LOG(ERROR) << "Unable to connect:" << er.message();
-                    self->socket.close();
+        void send(Message message) {
+            asio::post(context, [&, message] {
+                std::lock_guard lg{mt};
+//                if (messages.size() > 10) {
+//                    LOG(ERROR) << "Queue" << messages.size();
+//                }
+                messages.push(message);
+                if (messages.size() == 1) {
+                    cur_message = message;
+                    write_header();
                 }
             });
         }
 
-        static void write_header(std::shared_ptr<WriteConnection> self) {
-            asio::async_write(self->socket, asio::buffer(&self->message.size, sizeof(self->message.size)),
-                [&, self](std::error_code er, size_t len) {
+    private:
+        void next_message() {
+            std::lock_guard lg{mt};
+            messages.pop();
+            if (!messages.empty()) {
+                Message message = messages.front();
+                cur_message = message;
+                write_header();
+            }
+        }
+
+        void connect() {
+            asio::ip::tcp::resolver resolver(context);
+            asio::ip::tcp::resolver::results_type endpoints
+                    = resolver.resolve(descriptor.ip_address, std::to_string(descriptor.port));
+//            self->socket.
+            asio::async_connect(socket, endpoints, [&](std::error_code er, const asio::ip::tcp::endpoint &endpoint) {
+                if (!er) {
+                } else {
+                    socket.close();
+                    attempt++;
+                    if (attempt < 10) {
+                        LOG(ERROR) << "Unable to connect:" << er.message() << attempt;
+                        connect();
+                    } else {
+                        LOG(ERROR) << "Unable to connect:" << er.message();
+                    }
+                }
+            });
+        }
+
+        void write_header() {
+            asio::async_write(socket, asio::buffer(&cur_message.size, sizeof(cur_message.size)),
+                [&](std::error_code er, size_t len) {
                     if (!er) {
-                        write_data(self);
+                        write_data();
                     } else {
                         LOG(ERROR) << "Error writing header:" << er.message();
-                        self->socket.close();
+                        socket.close();
                     }
                 });
         }
 
-        static void write_data(std::shared_ptr<WriteConnection> self) {
-            asio::async_write(self->socket, asio::buffer(self->message.data.data(), self->message.size),
-                [&, self](std::error_code er, size_t len) {
-                    if (er) {
+        void write_data() {
+            asio::async_write(socket, asio::buffer(cur_message.data.data(), cur_message.size),
+                [&](std::error_code er, size_t len) {
+                    if (!er) {
+                        next_message();
+                    } else {
                         LOG(ERROR) << "Error writing data:" << er.message();
+                        socket.close();
                     }
-                    self->socket.close();
                 });
         }
     };

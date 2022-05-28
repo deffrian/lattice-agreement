@@ -100,7 +100,11 @@ struct FaleiroProtocol : net::IMessageReceivedCallback {
     void start(AcceptorCallback<L> *acceptorCallback, ProposerCallback<L> *proposerCallback) {
         acceptor_callback = acceptorCallback;
         proposer_callback = proposerCallback;
-        server.start();
+        std::vector<net::ProcessDescriptor> tmp;
+        for (const auto &descriptor: descriptors) {
+            tmp.push_back(descriptor.second);
+        }
+        server.start(tmp);
     }
 
     void on_message_received(net::Message &message) override {
