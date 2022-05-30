@@ -52,19 +52,28 @@ namespace net {
 
     struct WriteConnection : std::enable_shared_from_this<WriteConnection> {
 
-        asio::ip::tcp::socket socket;
         asio::io_context &context;
+        asio::ip::tcp::socket socket;
         Message message;
         ProcessDescriptor descriptor;
+        asio::steady_timer timer;
 
         WriteConnection(asio::io_context &context, ProcessDescriptor descriptor, Message message)
                 : message(std::move(message)),
                   context(context),
                   socket(context),
+                  timer(context),
                   descriptor(std::move(descriptor)) {}
 
         void send() {
-            connect(shared_from_this());
+            auto ptr = shared_from_this();
+            timer.async_wait([ptr](const asio::error_code& er) {
+                if (!er) {
+                    connect(ptr);
+                } else {
+                    LOG(ERROR) << "ERROR Waiting" << er.message();
+                }
+            });
         }
 
     private:
