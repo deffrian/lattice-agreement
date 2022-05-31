@@ -17,7 +17,8 @@ namespace net {
 
         IMessageReceivedCallback *callback;
 
-        std::default_random_engine generator;
+        std::random_device dev;
+        std::default_random_engine generator{dev()};
         std::normal_distribution<double> distribution{300, 30};
 
         Server(IMessageReceivedCallback *callback, uint64_t port)
@@ -42,7 +43,8 @@ namespace net {
 
         void send(const ProcessDescriptor &descriptor, const Message &message) {
             auto connection = std::make_shared<net::WriteConnection>(context,  descriptor, message);
-            connection->timer.expires_from_now(std::chrono::milliseconds((uint64_t)distribution(generator)));
+            uint64_t delay = (uint64_t)distribution(generator);
+            connection->timer.expires_from_now(std::chrono::milliseconds(delay));
             connection->send();
         }
 

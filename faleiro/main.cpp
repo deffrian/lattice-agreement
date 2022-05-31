@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     coordinator_client.wait_for_start();
 
     LOG(INFO) << "Run la";
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     // Run la
     auto begin = std::chrono::steady_clock::now();
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
     // Wait before stopping protocol
     coordinator_client.wait_for_stop();
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     protocol.stop();
 
 }
