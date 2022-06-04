@@ -30,5 +30,5 @@ This repository contains implementation of four LA algorithms.
 
 # License
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/deffrian/lattice-agreement/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/deffrian/lattice-agreement/blob/master/LICENSE)
 
