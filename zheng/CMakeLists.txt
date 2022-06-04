@@ -7,6 +7,8 @@ find_package(Threads REQUIRED)
 
 add_executable(zheng main.cpp)
 
+target_link_libraries(zheng asio)
+
 if(THREADS_HAVE_PTHREAD_ARG)
     target_compile_options(zheng PUBLIC "-pthread")
 endif()

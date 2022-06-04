@@ -4,39 +4,41 @@
 #include <unistd.h>
 #include <random>
 
-#include "lattice.h"
+#include "general/lattice_agreement.h"
+#include "general/lattice.h"
 #include "acceptor.h"
-#include "network.h"
-#include "lattice_agreement.h"
 
 enum Status {
     Passive,
     Active,
 };
 
-template<typename L, typename P>
-struct Proposer : LatticeAgreement<L> {
+template<typename L>
+struct Proposer : LatticeAgreement<L>, ProposerCallback<L> {
     uint64_t uid;
     Status status;
     uint64_t ack_count;
     uint64_t nack_count;
     uint64_t active_proposal_number;
     L proposed_value;
-    P &protocol;
+    FaleiroProtocol<L> &protocol;
+
+    uint64_t n;
+
+    std::mutex mt;
+    std::condition_variable cv;
 
 
-    explicit Proposer(P &protocol) : protocol(protocol), status(Passive), ack_count(0), nack_count(0),
-                                     active_proposal_number(0) {
-        std::random_device dev;
-        std::mt19937 mt(dev());
-        std::uniform_int_distribution<uint64_t> dist;
-        uid = dist(mt);
-        std::cout << "proposer id: " << uid << std::endl;
-    }
+    Proposer(FaleiroProtocol<L> &protocol, uint64_t uid, uint64_t n) : protocol(protocol), status(Passive),
+                                                                       ack_count(0),
+                                                                       nack_count(0), n(n),
+                                                                       active_proposal_number(0), uid(uid) {}
 
     L start(const L &initial_value) override {
         propose(initial_value);
+        std::unique_lock lk{mt};
         while (true) {
+            cv.wait(lk);
             auto result = decide();
             if (result.has_value()) {
                 return result.value();
@@ -46,96 +48,52 @@ struct Proposer : LatticeAgreement<L> {
         }
     }
 
-    uint64_t get_uid() {
-        return uid;
-    }
-
     void propose(const L &initial_value) {
         if (active_proposal_number == 0) {
             proposed_value = initial_value;
             status = Status::Active;
             active_proposal_number += 1;
-            protocol.send_proposal(ProposerRequest<L>(proposed_value, active_proposal_number, uid), *this);
+            protocol.send_proposal(proposed_value, active_proposal_number, uid);
         }
     }
 
-    void process_ack(uint64_t proposal_number) {
+    void process_ack(uint64_t proposal_number) override {
+        std::lock_guard lg{mt};
         if (proposal_number == active_proposal_number) {
+            LOG(INFO) << "ack received";
             ack_count += 1;
+            cv.notify_one();
         }
     }
 
-    void process_nack(uint64_t proposal_number, L &value) {
+    void process_nack(uint64_t proposal_number, L &value) override {
+        std::lock_guard lg{mt};
         if (proposal_number == active_proposal_number) {
+            LOG(INFO) << "nack received";
             proposed_value = LatticeSet::join(proposed_value, value);
             nack_count += 1;
+            cv.notify_one();
         }
     }
 
     void refine() {
-        uint64_t acc_cnt = protocol.get_acceptors_count();
+        uint64_t acc_cnt = n;
         if (nack_count > 0 && status == Status::Active &&
             nack_count + ack_count >= (acc_cnt + 2) / 2) {
             active_proposal_number += 1;
             ack_count = 0;
             nack_count = 0;
-            protocol.send_proposal(ProposerRequest<L>(proposed_value, active_proposal_number, uid), *this);
+            protocol.send_proposal(proposed_value, active_proposal_number, uid);
         }
     }
 
     std::optional<L> decide() {
-        uint64_t acc_cnt = protocol.get_acceptors_count();
+        uint64_t acc_cnt = n;
         if (ack_count >= (acc_cnt + 2) / 2 && status == Status::Active) {
             status = Status::Passive;
             return {proposed_value};
         } else {
             return {};
         }
-    }
-};
-
-template<typename L>
-struct ProposerProtocolTcp {
-    std::vector<ProcessDescriptor> acceptors;
-
-    void add_acceptor(const ProcessDescriptor &acceptor) {
-        acceptors.push_back(acceptor);
-    }
-
-    void send_proposal(const ProposerRequest<L> &proposal, Proposer<L, ProposerProtocolTcp<L>> &proposer) {
-        for (auto & acceptor : acceptors) {
-            auto res = get_reply(proposal, acceptor);
-            if (std::holds_alternative<Ack<L>>(res)) {
-                proposer.process_ack(std::get<Ack<L>>(res).proposal_number);
-            } else {
-                auto nack = std::get<Nack<L>>(res);
-                proposer.process_nack(nack.proposal_number, nack.proposed_value);
-            }
-        }
-    }
-
-    std::variant<Ack<L>, Nack<L>> get_reply(const ProposerRequest<L> &proposal, const ProcessDescriptor &descriptor) {
-        int sock = open_socket(descriptor);
-        std::cout << "Sending request" << std::endl;
-        send_number(sock, proposal.proposal_number);
-        send_number(sock, proposal.proposer_id);
-        send_lattice(sock, proposal.proposed_value);
-
-        std::cout << "Receiving reply" << std::endl;
-
-        uint8_t isAck = read_byte(sock);
-        uint64_t proposal_number = read_number(sock);
-        uint64_t proposer_id = read_number(sock);
-        auto set_recv = read_lattice<LatticeSet>(sock);
-        close(sock);
-        if (isAck) {
-            return {Ack<L>{proposal_number, set_recv, proposer_id}};
-        } else {
-            return {Nack<L>{proposal_number, set_recv, proposer_id}};
-        }
-    }
-
-    [[nodiscard]] uint64_t get_acceptors_count() const {
-        return acceptors.size();
     }
 };

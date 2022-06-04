@@ -50,9 +50,9 @@ struct LACoordinatorClient {
             uint64_t port = read_number(sock);
             std::string ip = read_string(sock);
             uint64_t id = read_number(sock);
-            if (id != my_id) {
+//            if (id != my_id) {
                 peers.push_back({ip, id, port});
-            }
+//            }
         }
         server.close_socket(sock);
     }

@@ -1,5 +1,9 @@
 #pragma once
 
+/**
+ * Interface of GLA
+ * @tparam L Lattice type
+ */
 template<typename L>
 struct GeneralizedLA {
     virtual void start() = 0;

@@ -2,17 +2,21 @@
 
 #include <sstream>
 #include <iostream>
+#include <vector>
 
+#include "lattice.h"
+
+/**
+ * Logging level
+ */
 enum LogLevel {
     ERROR,
     INFO,
 };
-
+/**
+ * Used to log messages. Usage: LOG(INFO) << "Logging message"
+ */
 struct LOG {
-
-    std::stringstream ss;
-    LogLevel level;
-
     explicit LOG(LogLevel level) : level(level) {}
 
     ~LOG() {
@@ -31,5 +35,37 @@ struct LOG {
         ss << message << ' ';
         return *this;
     }
+
+    template<typename T>
+    LOG & operator<<(const std::vector<T> &message) {
+        ss << '{';
+        for (auto elem : message) {
+            *this << elem << ',';
+        }
+        ss << "} ";
+        return *this;
+    }
+
+    template<>
+    LOG & operator<<(const LatticeSet &message) {
+        ss << '{';
+        for (auto elem : message.set) {
+            ss << elem << ',';
+        }
+        ss << "} ";
+        return *this;
+    }
+
+    template<typename L, typename R>
+    LOG & operator<<(const std::pair<L, R> &message) {
+        ss << '(';
+        *this << message.first << message.second;
+        ss << ")";
+        return *this;
+    }
+
+private:
+    std::stringstream ss;
+    LogLevel level;
 
 };
