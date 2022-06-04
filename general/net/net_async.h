@@ -4,6 +4,9 @@
 #include <utility>
 
 namespace net {
+    /**
+     * Descriptor of process.
+     */
     struct ProcessDescriptor {
         std::string ip_address;
         uint64_t id;

@@ -6,16 +6,17 @@
 
 #include "lattice.h"
 
+/**
+ * Logging level
+ */
 enum LogLevel {
     ERROR,
     INFO,
 };
-
+/**
+ * Used to log messages. Usage: LOG(INFO) << "Logging message"
+ */
 struct LOG {
-
-    std::stringstream ss;
-    LogLevel level;
-
     explicit LOG(LogLevel level) : level(level) {}
 
     ~LOG() {
@@ -62,5 +63,9 @@ struct LOG {
         ss << ")";
         return *this;
     }
+
+private:
+    std::stringstream ss;
+    LogLevel level;
 
 };

@@ -5,8 +5,30 @@
 
 namespace net {
 
+    /**
+     * Reads message from socket.
+     */
     struct ReadConnection : std::enable_shared_from_this<ReadConnection> {
 
+        /**
+         * ReadConnection constructor
+         * @param context context where async calls will be executed
+         * @param socket client socket
+         * @param callback message received callback
+         */
+        ReadConnection(asio::io_context &context, asio::ip::tcp::socket socket, IMessageReceivedCallback *callback)
+                : context(context),
+                  socket(std::move(socket)),
+                  callback(callback) {}
+
+        /**
+         * Start async task
+         */
+        void receive() {
+            read_header(shared_from_this());
+        }
+
+    private:
         asio::io_context &context;
         asio::ip::tcp::socket socket;
 
@@ -14,16 +36,6 @@ namespace net {
 
         Message message;
 
-        ReadConnection(asio::io_context &context, asio::ip::tcp::socket socket, IMessageReceivedCallback *callback)
-                : context(context),
-                  socket(std::move(socket)),
-                  callback(callback) {}
-
-        void receive() {
-            read_header(shared_from_this());
-        }
-
-    private:
         static void read_header(std::shared_ptr<ReadConnection> self) {
             asio::async_read(self->socket, asio::buffer(&self->message.size, sizeof(self->message.size)),
                 [&, self](std::error_code er, size_t len) {
