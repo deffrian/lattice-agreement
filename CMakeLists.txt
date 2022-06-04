@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(asio INTERFACE)
 target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
-target_include_directories(asio INTERFACE ${CMAKE_SOURCE_DIR}/asio-1.22.1/include)
+target_include_directories(asio INTERFACE ${CMAKE_SOURCE_DIR}/external/asio/asio/include)
 target_link_libraries(asio INTERFACE pthread)
 add_executable(lattice_agreement main.cpp)
 
